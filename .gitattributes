@@ -1,0 +1,14 @@
+# Normalize line endings so CI behaves identically on Windows runners:
+# - gofmt rejects CRLF files, so Go sources must stay LF.
+# - Bash-run workflow steps are sensitive to CRLF too.
+*.go text eol=lf
+*.mod text eol=lf
+*.sum text eol=lf
+.github/workflows/*.yml text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.sh text eol=lf
