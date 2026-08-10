@@ -94,6 +94,15 @@ The codebase is small — consistency beats cleverness:
 
 ## Testing your changes
 
+Install the dev dependencies and run the test suite:
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest
+```
+
+The suite covers junk detection, categorization, protected paths and the deletion logic — always against throwaway temp folders, never your real drive. CI also runs it on every push and PR, across Python 3.8 → 3.13.
+
 - **Run the tool** and make sure it starts, scans and exits cleanly:
   ```bash
   python junkfuck.py

@@ -1,0 +1,55 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "junkfuck.py"
+      - ".github/workflows/build-exe.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build JunkFuck (${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            os: windows-latest
+            python-arch: x64
+          - arch: x86
+            os: windows-latest
+            python-arch: x86
+          - arch: arm64
+            os: windows-11-arm
+            python-arch: arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12 (${{ matrix.arch }})
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          architecture: ${{ matrix.python-arch }}
+
+      - name: Install build tools
+        run: pip install colorama "pyinstaller>=6.11"
+
+      - name: Build executable with PyInstaller
+        run: pyinstaller --onefile --clean --noconfirm --name JunkFuck junkfuck.py
+
+      - name: Rename artifact
+        run: Move-Item dist/JunkFuck.exe dist/JunkFuck-${{ matrix.arch }}.exe -Force
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: JunkFuck-${{ matrix.arch }}
+          path: dist/JunkFuck-${{ matrix.arch }}.exe
+          if-no-files-found: error

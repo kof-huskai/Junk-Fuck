@@ -7,19 +7,19 @@
 ![Python](https://img.shields.io/badge/Python-3.8+-3776AB?logo=python&logoColor=white)
 ![Platform](https://img.shields.io/badge/Platform-Windows-0078D6?logo=windows&logoColor=white)
 ![Version](https://img.shields.io/badge/version-3.0.0-9B59B6)
+![CI](https://github.com/kof-huskai/Junk-Fuck/actions/workflows/ci.yml/badge.svg)
+![Release](https://github.com/kof-huskai/Junk-Fuck/actions/workflows/release.yml/badge.svg)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)
 
 **English** | [**فارسی (Persian)**](README.fa.md)
 
----
+</div>
 
 > ⚠️ **Heads up:** This tool permanently deletes files. It always asks for your confirmation before removing anything, but please review each item carefully — **you are responsible for your own data.**
 
-</div>
+**JUNKFUCK** is a fast, honest, interactive command-line tool that deep-scans your **C: drive** for junk — temporary files, caches, logs, crash dumps, backups and partial downloads — and lets you clean them up one by one, with **your confirmation before every single deletion**.
 
-**JUNKFUCK** is a colorful, interactive command-line utility that deep-scans your **C: drive** for junk files — temporary files, caches, logs, crash dumps, backups, partial downloads and more — and lets you clean them up one by one, with **your confirmation for every single item**.
-
-No bloated GUI, no dark patterns — just a fast, honest terminal tool that tells you exactly what it found and asks before it touches anything.
+No bloated GUI, no dark patterns. Pre-built **Windows executables (x64 / x86 / ARM64)** ship with every release — grab one from the [Releases page](https://github.com/kof-huskai/Junk-Fuck/releases) and run it without installing Python.
 
 ---
 
@@ -40,10 +40,16 @@ No bloated GUI, no dark patterns — just a fast, honest terminal tool that tell
 ## 📦 Requirements
 
 - **Windows** (the tool is built around the C: drive and Windows paths)
-- **Python 3.8+**
+- **Python 3.8+** *(only needed to run from source — the EXE bundles everything)*
 - [**colorama**](https://pypi.org/project/colorama/) — for colored terminal output
 
-### Installation
+### ⚡ The easy way — download the EXE
+
+Grab the latest `JunkFuck-*.exe` for your architecture (x64 / x86 / ARM64) from the [Releases page](https://github.com/kof-huskai/Junk-Fuck/releases) and run it — **no Python installation required**.
+
+> ⚠️ Windows SmartScreen may warn that the EXE is unsigned. Click **More info → Run anyway** — it's the exact same open-source script you can read in this repo.
+
+### 🐍 Build & run from source
 
 ```bash
 # 1. Clone the repository
@@ -134,7 +140,7 @@ Contributions are very welcome! Whether it's a bug report, a new junk pattern, o
 
 ## 📜 License
 
-Distributed under the **MIT License**. See the `LICENSE` file for details. *(If no license file is present yet, please ask the maintainer before reusing the code.)*
+Distributed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
 
 ---
 

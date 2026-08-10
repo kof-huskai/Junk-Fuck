@@ -13,20 +13,19 @@ Features:
 
 __version__ = "3.0.0"
 
+import ctypes
 import os
-import sys
 import platform
 import shutil
 import stat
-import time
+import sys
 import threading
-import ctypes
-from pathlib import Path
-from typing import List, Tuple, Set, Dict, Optional
+import time
 from dataclasses import dataclass
-from enum import Enum
+from typing import List, Set
+
 import colorama
-from colorama import Fore, Back, Style
+from colorama import Fore, Style
 
 colorama.init(autoreset=True)
 
@@ -156,7 +155,7 @@ class ConsoleUI:
 
     def print_box(self, lines: List[str], color: str = Colors.HEADER, title: str = ""):
         self.update_width()
-        content_width = min(self.width - 4, max(len(l.replace(Colors.RESET, "").replace(Colors.HEADER, "").replace(Colors.SUCCESS, "").replace(Colors.WARNING, "").replace(Colors.ERROR, "").replace(Colors.INFO, "").replace(Colors.MAGENTA, "")) for l in lines) + 2)
+        content_width = min(self.width - 4, max(len(line.replace(Colors.RESET, "").replace(Colors.HEADER, "").replace(Colors.SUCCESS, "").replace(Colors.WARNING, "").replace(Colors.ERROR, "").replace(Colors.INFO, "").replace(Colors.MAGENTA, "")) for line in lines) + 2)
         if title:
             content_width = max(content_width, len(title) + 2)
         
@@ -166,7 +165,7 @@ class ConsoleUI:
         self.print_center(top, color)
         if title:
             self.print_center(f"| {title.center(content_width - 2)} |", color)
-            self.print_center(f"+" + "-" * content_width + "+", color)
+            self.print_center("+" + "-" * content_width + "+", color)
         for line in lines:
             visible = line.replace(Colors.RESET, "").replace(Colors.HEADER, "").replace(Colors.SUCCESS, "").replace(Colors.WARNING, "").replace(Colors.ERROR, "").replace(Colors.INFO, "").replace(Colors.MAGENTA, "")
             padding = content_width - len(visible)
