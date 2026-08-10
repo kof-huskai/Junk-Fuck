@@ -85,7 +85,7 @@ export function Results() {
       </div>
 
       {lastReport && (
-        <div className={`flex flex-wrap items-center gap-x-5 gap-y-1 rounded-xl border px-4 py-3 text-sm ${lastReport.dryRun ? "border-accent/40 bg-accent-soft/30" : "border-success/30 bg-[#0f2b23]"}`}>
+        <div className={`slide-in flex flex-wrap items-center gap-x-5 gap-y-1 rounded-xl border px-4 py-3 text-sm ${lastReport.dryRun ? "border-accent/40 bg-accent-soft/30" : "border-success/30 bg-[#0f2b23]"}`}>
           <span className="font-semibold text-white">{t(lastReport.dryRun ? "hist.dryRun" : "hist.title")}</span>
           <span className="inline-flex items-center gap-1 text-success">
             <CheckCircle2 size={14} /> {t("hist.deleted")}: {lastReport.deletedCount}
@@ -142,13 +142,14 @@ export function Results() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((c: model.Candidate) => {
+                {filtered.map((c: model.Candidate, idx) => {
                   const isSel = selected.has(c.path);
                   return (
                     <tr
                       key={c.path}
+                      style={{ animationDelay: `${Math.min(idx * 18, 300)}ms` }}
+                      className={`row-in cursor-pointer border-t border-border/60 transition-colors hover:bg-panel-2 ${c.protected ? "opacity-50" : ""} ${isSel ? "bg-accent-soft/20" : ""}`}
                       onClick={() => toggle(c.path, c.protected)}
-                      className={`cursor-pointer border-t border-border/60 transition-colors hover:bg-panel-2 ${c.protected ? "opacity-50" : ""} ${isSel ? "bg-accent-soft/20" : ""}`}
                     >
                       <td className="px-4 py-2">
                         <Checkbox checked={isSel} onChange={() => toggle(c.path, c.protected)} disabled={c.protected} title={c.protected ? t("res.protected") : undefined} />

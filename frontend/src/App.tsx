@@ -49,11 +49,17 @@ function Shell() {
             <button
               key={p}
               onClick={() => setPage(p)}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+              className={`group flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all duration-150 active:scale-[0.98] ${
                 page === p ? "bg-accent-soft/40 text-white" : "text-muted hover:bg-panel-2 hover:text-white"
               }`}
             >
-              <span className="flex w-5 justify-center">{icons[p]}</span>
+              <span
+                className={`flex w-5 justify-center transition-transform duration-200 ease-out group-hover:scale-110 ${
+                  page === p ? "text-accent" : ""
+                }`}
+              >
+                {icons[p]}
+              </span>
               {t(`nav.${p}`)}
             </button>
           ))}
@@ -76,18 +82,20 @@ function Shell() {
 
       {/* Main */}
       <main className="min-w-0 flex-1 overflow-y-auto">
-        {page === "dashboard" && <Dashboard onNavigate={(p) => setPage(p as Page)} />}
-        {page === "scanner" && <Scanner />}
-        {page === "results" && <Results />}
-        {page === "history" && <History />}
-        {page === "settings" && <Settings />}
-        {page === "about" && <About />}
+        <div key={page} className="page-enter h-full">
+          {page === "dashboard" && <Dashboard onNavigate={(p) => setPage(p as Page)} />}
+          {page === "scanner" && <Scanner />}
+          {page === "results" && <Results />}
+          {page === "history" && <History />}
+          {page === "settings" && <Settings />}
+          {page === "about" && <About />}
+        </div>
       </main>
 
       {/* Language quick switch (bottom-right) */}
       <button
         onClick={() => setLang(lang === "en" ? "fa" : "en")}
-        className="fixed bottom-3 end-3 rounded-full border border-border bg-panel px-3 py-1 text-xs text-muted transition-colors hover:border-accent/60 hover:text-white"
+        className="fixed bottom-3 end-3 rounded-full border border-border bg-panel px-3 py-1 text-xs text-muted transition-all duration-150 hover:border-accent/60 hover:text-white active:scale-95"
         title="Switch language / تغییر زبان"
       >
         {lang === "en" ? "فارسی" : "EN"}

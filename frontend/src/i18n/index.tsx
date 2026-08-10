@@ -14,15 +14,23 @@ interface I18nValue {
 
 const Ctx = createContext<I18nValue | null>(null);
 
+function applyLanguage(l: Language) {
+  // Applied synchronously (not in an effect) so the first paint already
+  // uses the right dir and font — no LTR/Segoe flash for Persian users.
+  document.documentElement.lang = l;
+  document.documentElement.dir = l === "fa" ? "rtl" : "ltr";
+}
+
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLang] = useState<Language>(() => {
     const saved = localStorage.getItem("jf.lang");
-    return saved === "fa" ? "fa" : "en";
+    const l: Language = saved === "fa" ? "fa" : "en";
+    applyLanguage(l);
+    return l;
   });
 
   useEffect(() => {
-    document.documentElement.lang = lang;
-    document.documentElement.dir = lang === "fa" ? "rtl" : "ltr";
+    applyLanguage(lang);
     localStorage.setItem("jf.lang", lang);
   }, [lang]);
 

@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Sparkles } from "lucide-react";
 
 /* ---------- Button ---------- */
@@ -25,7 +25,7 @@ export function Button({
   return (
     <button
       {...props}
-      className={`inline-flex items-center justify-center font-medium transition-all duration-150 disabled:opacity-40 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`inline-flex items-center justify-center font-medium transition-all duration-150 active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 ${variants[variant]} ${sizes[size]} ${className}`}
     />
   );
 }
@@ -33,7 +33,11 @@ export function Button({
 /* ---------- Card ---------- */
 export function Card({ className = "", children }: { className?: string; children: React.ReactNode }) {
   return (
-    <div className={`rounded-xl border border-border bg-panel p-5 ${className}`}>{children}</div>
+    <div
+      className={`rounded-xl border border-border bg-panel p-5 transition-all duration-200 hover:border-accent/40 hover:shadow-[0_4px_24px_rgba(0,0,0,0.35)] ${className}`}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -97,12 +101,12 @@ export function Checkbox({
         e.stopPropagation();
         if (!disabled) onChange(!checked);
       }}
-      className={`inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border transition-colors disabled:opacity-30 disabled:pointer-events-none ${
+      className={`inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border transition-all duration-150 disabled:opacity-30 disabled:pointer-events-none active:scale-90 ${
         checked ? "border-accent bg-accent" : "border-border bg-panel-2 hover:border-accent/60"
       }`}
     >
       {checked && (
-        <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+        <svg className="animate-check" width="11" height="11" viewBox="0 0 12 12" fill="none">
           <path d="M2 6.2 4.8 9 10 3.4" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       )}
@@ -113,11 +117,12 @@ export function Checkbox({
 /* ---------- ProgressBar ---------- */
 export function ProgressBar({ value, max = 100 }: { value: number; max?: number }) {
   const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
+  const running = pct < 100;
   return (
     <div className="h-2 w-full overflow-hidden rounded-full bg-panel-2">
       <div
-        className="h-full rounded-full bg-gradient-to-r from-accent to-[#7fb0ff] transition-[width] duration-200"
-        style={{ width: `${pct}%` }}
+        className={`relative h-full overflow-hidden rounded-full bg-gradient-to-r from-accent to-[#7fb0ff] transition-[width] duration-300 ease-out ${running ? "progress-shimmer" : ""}`}
+        style={{ width: `${Math.max(pct, 2)}%` }}
       />
     </div>
   );
@@ -135,19 +140,39 @@ export function Dialog({
   title: string;
   children: React.ReactNode;
 }) {
+  // Keep the dialog mounted through the exit animation instead of
+  // unmounting instantly, so close feels as polished as open.
+  const [closing, setClosing] = useState(false);
+
+  const requestClose = () => {
+    if (closing) return;
+    setClosing(true);
+    setTimeout(() => {
+      setClosing(false);
+      onClose();
+    }, 160);
+  };
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") requestClose();
     };
     if (open) window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open, requestClose]);
+
+  useEffect(() => {
+    if (open) setClosing(false);
+  }, [open]);
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <div
+      className={`${closing ? "dialog-exit" : "dialog-backdrop"} fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm`}
+      onClick={requestClose}
+    >
       <div
-        className="w-[520px] max-w-[90vw] rounded-2xl border border-border bg-panel p-6 shadow-2xl"
+        className={`${closing ? "dialog-exit-panel" : "dialog-panel"} w-[520px] max-w-[90vw] rounded-2xl border border-border bg-panel p-6 shadow-2xl`}
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="mb-4 text-lg font-semibold text-white">{title}</h2>

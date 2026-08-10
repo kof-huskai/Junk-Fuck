@@ -16,6 +16,10 @@ __pycache__/
 .ruff_cache/
 ruff_out.txt
 
+# Local animation plans (kept out of the repo on purpose)
+plans/
+animation-plans/
+
 # Editor
 .idea/
 .vscode/
