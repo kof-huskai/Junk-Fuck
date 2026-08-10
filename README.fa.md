@@ -5,7 +5,7 @@
 **اسکنر و پاک‌کننده‌ی عمیق فایل‌های زباله در ویندوز — اپلیکیشن دسکتاپ**
 
 ![Go](https://img.shields.io/badge/Go-1.23+-00ADD8?logo=go&logoColor=white)
-![Wails](https://img.shields.io/badge/Wails-v2-DF0000)
+![Wails](https://img.shields.io/badge/Wails-v3-DF0000)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
 ![Platform](https://img.shields.io/badge/Platform-Windows-0078D6?logo=windows&logoColor=white)
 ![Version](https://img.shields.io/badge/version-4.0.0-9B59B6)
@@ -21,7 +21,7 @@
 
 **جانک‌فاک** یک اپلیکیشن دسکتاپ سریع و صادق برای ویندوز است که درایوهای شما را عمیق اسکن می‌کند — فایل‌های موقت، کش‌ها، لاگ‌ها، Crash Dump، پشتیبان‌ها و دانلودهای ناقص — آن‌ها را دسته‌بندی می‌کند و **فقط پس از تأیید صریح شما** پاک می‌کند. بدون حذف خودکار، بدون ترفند.
 
-این یک اپلیکیشن بومی ویندوز است: **هسته‌ی Go** (تمام منطق فایل‌سیستم)، پوسته‌ی دسکتاپ **Wails v2** و رابط کاربری **React/TypeScript**. بدون هیچ وابستگی runtime — فقط EXE را اجرا کنید.
+این یک اپلیکیشن بومی ویندوز است: **هسته‌ی Go** (تمام منطق فایل‌سیستم)، پوسته‌ی دسکتاپ **Wails v3** و رابط کاربری **React/TypeScript**. بدون هیچ وابستگی runtime — فقط EXE را اجرا کنید.
 
 > 💾 **برای استفاده نیازی به ساخت نیست:** فایل `JunkFuck.exe` را از صفحه‌ی [Releases](https://github.com/kof-huskai/Junk-Fuck/releases) دانلود و روی ویندوز ۱۰/۱۱ اجرا کنید.
 
@@ -39,6 +39,7 @@
 - 📝 **تاریخچه** — گزارش آخرین پاک‌سازی (حذف‌شده / ردشده / ناموفق / فضای آزادشده)
 - 🌐 **فارسی و انگلیسی (RTL)** — تغییر زبان از نوار کناری
 - 📦 **ریلیز خودکار** — ساخت tag محور، GitHub Releases و اعلان تلگرام
+- 🔄 **آپدیت درون‌برنامه‌ای** — Updater رسمی Wails v3 از GitHub Releases نسخه‌ی جدید را بررسی، چکسام را تأیید و به‌درخواست نصب می‌کند
 
 ---
 
@@ -73,12 +74,14 @@
 
 - **Go 1.23+**
 - **Node.js 20+** (npm)
-- **Wails CLI** — `go install github.com/wailsapp/wails/v2/cmd/wails@latest`
+- **Wails v3 CLI** — `go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.6`
+
+> نسخه‌ی Wails v3 در `v3.0.0-beta.6` پین شده (پیش از GA). ارتقاها عمدی هستند: به‌روزرسانی `go.mod`، نصب دوباره‌ی `wails3`، تولید دوباره‌ی bindings و تأیید مجدد build.
 
 ### اجرای حالت توسعه
 
 ```bash
-wails dev
+wails3 dev
 ```
 
 ### دستورها
@@ -89,15 +92,17 @@ wails dev
 | Vet | `go vet ./...` |
 | بررسی فرمت | `gofmt -l .` |
 | ساخت فرانت‌اند | `cd frontend && npm ci && npm run build` |
-| ساخت EXE | `wails build -clean` |
+| تولید bindings | `wails3 generate bindings -clean=true -ts` |
+| ساخت EXE | `wails3 build` |
+| ساخت EXE با نسخه | `wails3 build VERSION=4.0.0` |
 
 ---
 
 ## 🏗️ معماری
 
 ```
-app.go / main.go          لایه‌ی دسکتاپ Wails (اسکن ناهمگام، رویدادها، جلسه‌ها)
-internal/
+main.go / services/       لایه‌ی Wails v3 (سیم‌کشی برنامه، سرویس‌ها، آپدیت‌ر)
+internal/                 هسته‌ی Go خالص — بدون import از Wails
 ├── classifier/           قوانین صریح زباله (پسوندها، پوشه‌ها، توکن‌ها)
 ├── protection/           مسیرها و برنامه‌های محافظت‌شده (اجرا در بک‌اند)
 ├── scanner/              پیمایش فقط‌خواندنی ناهمگام، پیشرفت، لغو
@@ -105,8 +110,19 @@ internal/
 ├── filesystem/           نرمال‌سازی مسیر، reparse point و …
 ├── report/               مدل گزارش پاک‌سازی
 └── platform/             نسخه‌ی OS / وضعیت مدیر
-frontend/                 React + TypeScript + Tailwind (فارسی/انگلیسی، RTL)
+frontend/                 React + TypeScript + Tailwind (فارسی/انگلیسی، RTL) + bindings v3
+build/                    تنظیمات build و3 (config.yml، windows/، آیکون‌ها)
+Taskfile.yml              تسک‌های و3 (build / dev / generate)
 ```
+
+```
+React / TypeScript
+    ↓ @wailsio/runtime (bindings + رویدادها)
+services/ (Wails v3)
+    ↓
+internal/ (هسته‌ی Go خالص)
+    ↓
+فایل‌سیستم / API های ویندوز
 
 اصل کلیدی: **رابط کاربری هرگز تصمیم نمی‌گیرد چه چیزی برای حذف امن است.** همه‌ی عملیات حساس فایل‌سیستمی در هسته‌ی Go هستند و با تست‌های خودکار ایمنی پوشش داده شده‌اند.
 
@@ -117,7 +133,7 @@ frontend/                 React + TypeScript + Tailwind (فارسی/انگلیس
 ریلیزها **tag محور** هستند. با push شدن یک tag `v*`:
 
 ۱. تست‌ها (Go + فرانت‌اند) — باید پاس شوند
-۲. ساخت production (`wails build`) + چکسام SHA-256
+۲. ساخت production (`wails3 build VERSION=vX.Y.Z`) + چکسام SHA-256
 ۳. GitHub Release با EXE و چکسام
 ۴. اعلان تلگرام + آپلود EXE (اختیاری)
 

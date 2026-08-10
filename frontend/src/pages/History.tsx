@@ -1,17 +1,18 @@
 import { useEffect, useState } from "react";
 import { useI18n } from "../i18n";
-import type { main, report } from "../../wailsjs/go/models";
-import * as backend from "../../wailsjs/go/main/App";
+import type * as cleanup from "../../bindings/github.com/kof-huskai/Junk-Fuck/services/models";
+import type * as report from "../../bindings/github.com/kof-huskai/Junk-Fuck/internal/report/models";
+import * as cleanupSvc from "../../bindings/github.com/kof-huskai/Junk-Fuck/services/cleanupservice";
 import { formatBytes } from "../lib/format";
 import { Badge, Card, EmptyState } from "../components/ui";
 
 export function History() {
   const { t } = useI18n();
-  const [entry, setEntry] = useState<main.lastReportEntry | null>(null);
+  const [entry, setEntry] = useState<cleanup.lastReportEntry | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    backend
+    cleanupSvc
       .GetLastReport()
       .then(setEntry)
       .catch(() => setEntry(null))
@@ -63,7 +64,7 @@ export function History() {
               </tr>
             </thead>
             <tbody>
-              {report.items.map((it, i) => (
+              {(report.items ?? []).map((it, i) => (
                 <tr key={i} className="border-t border-border/60">
                   <td className="max-w-72 truncate px-4 py-2 font-medium text-slate-200" dir="ltr">{it.name}</td>
                   <td className="px-4 py-2">

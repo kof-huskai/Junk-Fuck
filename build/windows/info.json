@@ -1,0 +1,15 @@
+{
+	"fixed": {
+		"file_version": "4.0.0"
+	},
+	"info": {
+		"0000": {
+			"ProductVersion": "4.0.0",
+			"CompanyName": "Junk-Fuck",
+			"FileDescription": "Deep Windows junk scanner & cleaner",
+			"LegalCopyright": "© 2026, Junk-Fuck contributors",
+			"ProductName": "JunkFuck",
+			"Comments": "Native Windows desktop junk cleaner - Go + Wails v3"
+		}
+	}
+}

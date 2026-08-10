@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   build:
-    name: Build JunkFuck EXE (amd64)
+    name: Build JunkFuck EXE
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,17 +24,25 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install Wails CLI
+      - name: Install pinned Wails v3 CLI
         shell: bash
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.6
 
-      - name: Build
+      - name: Build EXE (amd64)
         shell: bash
-        run: wails build -clean -skipbindings
+        run: |
+          wails3 build VERSION="${GITHUB_SHA::8}"
+          mv bin/JunkFuck.exe bin/JunkFuck-windows-amd64.exe
+
+      - name: Build EXE (arm64)
+        shell: bash
+        run: |
+          GOARCH=arm64 wails3 build VERSION="${GITHUB_SHA::8}"
+          mv bin/JunkFuck.exe bin/JunkFuck-windows-arm64.exe
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: JunkFuck-exe
-          path: build/bin/JunkFuck.exe
+          path: bin/*.exe
           if-no-files-found: error

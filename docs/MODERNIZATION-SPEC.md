@@ -3,6 +3,7 @@
 **Status:** Implemented — awaiting review on branch `feat/wails-desktop`
 **Last updated:** 2026-08-11
 **Version:** 4.0.0 (first desktop release)
+**Desktop framework:** Wails v3 (`v3.0.0-beta.6`, pinned)
 
 ## Context
 
@@ -17,9 +18,10 @@ The goal of this migration is to replace the Python CLI with a modern,
 lightweight **Windows desktop application** built with:
 
 - **Go** for the backend/core (all filesystem-sensitive logic)
-- **Wails v2** for the desktop application layer
+- **Wails v3** (`v3.0.0-beta.6`, pinned) for the desktop application layer
 - **React + TypeScript + Tailwind CSS** for the frontend
 - **GitHub Actions** for CI/build/release
+- **Official Wails v3 Updater** for in-app updates (GitHub provider)
 - **Telegram Bot API** for release notifications/uploads
 
 The final application must **not require Python** on the user's machine.
@@ -32,6 +34,9 @@ References (architecture inspiration only, never copied):
   implementation).
 
 ## Current Architecture
+
+> Historical record — the pre-migration Python CLI. The Go implementation
+> below is what the repository actually contains now.
 
 ```
 junkfuck.py            single-file Python CLI (~650 LOC)
@@ -68,11 +73,17 @@ Known weaknesses being fixed by this migration:
 
 ```
 /
-├── app.go                    Wails App (Startup/Shutdown, bound methods)
-├── main.go                   Wails entrypoint
+├── main.go                   Wails v3 entrypoint (application.New, services, updater)
+├── services/                 Wails v3 application services (thin adapters over Core)
+│   ├── core.go               service constructors + shared wiring
+│   ├── scanner_service.go    StartScan / CancelScan / GetCandidates / GetScanState
+│   ├── cleanup_service.go    Cleanup (validated deletion + dry-run)
+│   ├── settings_service.go   GetSettings / SaveSettings / GetAppInfo
+│   └── update_service.go     update check / install (wraps official v3 Updater)
 ├── go.mod / go.sum
-├── wails.json
-├── internal/
+├── Taskfile.yml              wails3 tasks (build/dev/generate)
+├── build/                    wails3 build config (config.yml, windows/, common icons)
+├── internal/                 PURE Go Core — no Wails imports allowed
 │   ├── classifier/           junk rules + categories
 │   ├── cleaner/              validated deletion + dry-run
 │   ├── filesystem/           walk, size, canonicalize, symlink detection
@@ -84,16 +95,67 @@ Known weaknesses being fixed by this migration:
 │   ├── src/
 │   │   ├── components/       UI components
 │   │   ├── i18n/             en/fa dictionaries + RTL support
-│   │   ├── lib/              wails bindings, formatting, store
+│   │   ├── lib/              store, formatting
 │   │   ├── pages/            Dashboard, Scanner, Results, History, Settings, About
 │   │   ├── types/            shared types
 │   │   └── App.tsx
+│   ├── bindings/             wails3 generate bindings output (TS, committed)
 │   ├── package.json
-│   └── ...
-├── tests/                    (Go tests live beside their packages)
+│   └── vite.config.ts        @wailsio/runtime vite plugin
 ├── docs/MODERNIZATION-SPEC.md
 └── .github/workflows/
 ```
+
+## Wails v3 Architecture
+
+**Selected version:** `v3.0.0-beta.6` (Go module `github.com/wailsapp/wails/v3`),
+frontend runtime `@wailsio/runtime@3.0.0-beta.5`. Pinned explicitly in `go.mod`
+and in every workflow — no floating `latest` in production CI.
+
+**Why v3:** v2 is legacy; the project spec mandates v3. v3 is pre-GA
+(beta.6) — this is documented as a known risk. The pure Go Core is completely
+Wails-free so a future v3 upgrade cannot touch scanner/cleaner/safety code.
+
+**Framework isolation strategy:** `internal/*` packages must never import
+Wails. `services/*` are the only Wails-aware layer; each service is a plain
+Go struct whose methods are bound to the frontend via
+`application.NewService(&svc)` — the v3 bindings generator introspects the
+service structs and emits TypeScript into `frontend/bindings/`.
+
+**Service boundaries (React → Wails v3 → Core):**
+
+```
+React / TypeScript
+    ↓ @wailsio/runtime (Events, bindings)
+Wails v3 application layer (services/*)
+    ↓
+Pure Go Core (internal/*)
+    ↓
+Filesystem / Windows APIs
+```
+
+**Event model:** services emit events through `application.Get().Event.Emit(name,
+data)`; the frontend subscribes with `Events.On(name, cb)` from
+`@wailsio/runtime`. Scan progress uses `scan:progress`; scan completion uses
+`scan:done`. Update progress/status use the official updater events
+(`update:status` wrapper + updater package events).
+
+**Updater architecture:** the official `pkg/updater` service
+(`app.Updater`) with a GitHub provider reading release artifacts
+(`JunkFuck-*.exe` + `SHA256SUMS`) from GitHub Releases. Check/install run in
+background goroutines; the UI is never blocked and updates are never forced.
+
+**Version pinning policy:** Wails v3 pinned at `v3.0.0-beta.6` in `go.mod`;
+`wails3` CLI pinned at the same version in CI (`go install ...@v3.0.0-beta.6`);
+Go toolchain pinned; Node pinned via `setup-node`.
+
+**Pre-GA risk:** beta.6 is pre-GA. Mitigations: framework-specific code is
+confined to `services/*` + `main.go`; CI pins the version; the build chain
+was verified end-to-end (`wails3 build` produces `JunkFuck.exe`).
+
+**Future migration strategy:** upgrade = bump the pinned version, regenerate
+bindings (`wails3 generate bindings`), fix `services/*` if any API moved. The
+Core and its tests stay untouched.
 
 ## Dictionary
 
@@ -193,8 +255,9 @@ All filesystem-sensitive operations go through the Core. The Desktop Layer
 - Localization: small dictionary-based i18n layer (`i18n/`) with `en` and
   `fa` dictionaries and `dir="rtl"` when Persian is selected.
 - State: React Context + hooks (no state library dependency).
-- Backend calls: Wails-generated bindings (`frontend/wailsjs/...`), committed
-  to the repository; events via `@wailsio/runtime`.
+- Backend calls: Wails v3-generated bindings (`frontend/bindings/...`),
+  committed to the repository; events via `@wailsio/runtime`
+  (`Events.On`/`Events.Off` with `WailsEvent.data`).
 - Pages: Dashboard, Scanner, Results, History, Settings, About — only pages
   with real functionality.
 
@@ -322,18 +385,21 @@ Frontend: type-checked build (`tsc --noEmit`) and production build.
 | Trigger | Workflow | Checks |
 | --- | --- | --- |
 | push / PR to main | `ci.yml` | gofmt, go vet, go test, frontend `tsc` + `vite build` |
-| manual | `build-exe.yml` (workflow_dispatch) | one amd64 Wails build, uploaded as artifact |
-| tag `v*` | `release.yml` | tests → Wails build → checksums → GitHub Release → Telegram |
+| manual | `build-exe.yml` (workflow_dispatch) | one amd64 Wails v3 build, uploaded as artifact |
+| tag `v*` | `release.yml` | tests → `wails3 build VERSION=vX.Y.Z` → checksums → GitHub Release → Telegram |
 
 No workflow performs a full production build twice. Production build happens
-only in `release.yml`.
+only in `release.yml`. All workflows install the pinned `wails3` CLI
+(`v3.0.0-beta.6`) via `go install`.
 
 ## Release Strategy
 
 - Semantic tags: `v4.0.0` for the first desktop release.
-- On tag: tests must pass, production build must succeed, checksums
-  generated, GitHub Release created, artifacts attached, then Telegram
-  notified.
+- On tag: tests must pass, `wails3 build VERSION=vX.Y.Z` must succeed
+  (version injected via `-ldflags` into `main.Version`), checksums generated,
+  GitHub Release created, artifacts attached, then Telegram notified.
+- The release tag is the single source of truth for the version; the app
+  reports it and the updater compares against GitHub release versions.
 - Minimum token permissions (`contents: write` only where needed).
 - Release is never published if tests or build fail.
 
@@ -351,20 +417,20 @@ only in `release.yml`.
 
 ## Measurement Criteria
 
-- [ ] `go build ./...` succeeds (or `go test` passes for all packages)
-- [ ] Safety tests pass (`go test ./internal/...`)
-- [ ] Frontend production build succeeds
-- [ ] Production operation does not require Python
-- [ ] Scanning is read-only (test-verified)
-- [ ] Cleanup requires explicit user action (backend-enforced)
-- [ ] Protected paths enforced by backend code (test-verified)
-- [ ] Cancellation implemented in the architecture (tested where practical)
-- [ ] CI is simpler than the previous pipeline (3 workflows, no duplicated builds)
-- [ ] Production tags can create GitHub Releases (workflow in place)
-- [ ] Telegram integration requires only GitHub Secrets
-- [ ] READMEs accurately describe the new architecture
-- [ ] No secrets committed
-- [ ] No unrelated architecture introduced
+- [x] `go build ./...` succeeds (or `go test` passes for all packages)
+- [x] Safety tests pass (`go test ./internal/...`)
+- [x] Frontend production build succeeds
+- [x] Production operation does not require Python
+- [x] Scanning is read-only (test-verified)
+- [x] Cleanup requires explicit user action (backend-enforced)
+- [x] Protected paths enforced by backend code (test-verified)
+- [x] Cancellation implemented in the architecture (tested where practical)
+- [x] CI is simpler than the previous pipeline (3 workflows, no duplicated builds)
+- [x] Production tags can create GitHub Releases (workflow in place)
+- [x] Telegram integration requires only GitHub Secrets
+- [x] READMEs accurately describe the new architecture
+- [x] No secrets committed
+- [x] No unrelated architecture introduced
 
 ## Expected Behavior
 
@@ -401,17 +467,18 @@ only in `release.yml`.
 
 1. ✅ Repository & environment inspection
 2. ✅ Specification
-3. Go module + Core packages (classifier, protection, filesystem, scanner,
+3. ✅ Go module + Core packages (classifier, protection, filesystem, scanner,
    cleaner, report, platform)
-4. Core tests + `gofmt`/`go vet`/`go test` green
-5. Wails layer (`main.go`, `app.go`, `wails.json`) + generated bindings
-6. Frontend (Vite + React + TS + Tailwind, i18n, pages)
-7. Frontend build verification
-8. GitHub Actions rewrite (ci, release, build-exe)
-9. Legacy Python implementation removed (see Decisions Log)
-10. Documentation (README, README.fa, CONTRIBUTING)
-11. Full verification loop; review; fix
-12. Push branch; open PR; user reviews and merges
+4. ✅ Core tests + `gofmt`/`go vet`/`go test` green
+5. ✅ Wails v3 layer (`main.go`, `services/*`, `Taskfile.yml`, `build/`) + generated bindings
+6. ✅ Frontend (Vite + React + TS + Tailwind, i18n, pages, v3 runtime)
+7. ✅ Frontend build verification
+8. ✅ GitHub Actions rewrite for Wails v3 (ci, release, build-exe)
+9. ✅ Legacy Python implementation removed (see Decisions Log)
+10. ✅ Documentation (README, README.fa, CONTRIBUTING)
+11. ✅ Wails v3 migration (beta.6) — services, updater, bindings, workflows
+12. ✅ Full verification loop; review; fix
+13. ✅ Push branch; open PR; user reviews and merges
 
 ## Decisions Log
 

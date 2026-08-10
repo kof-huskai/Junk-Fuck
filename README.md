@@ -5,7 +5,7 @@
 **Deep Windows Junk Scanner & Cleaner — Desktop App**
 
 ![Go](https://img.shields.io/badge/Go-1.23+-00ADD8?logo=go&logoColor=white)
-![Wails](https://img.shields.io/badge/Wails-v2-DF0000)
+![Wails](https://img.shields.io/badge/Wails-v3-DF0000)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
 ![Platform](https://img.shields.io/badge/Platform-Windows-0078D6?logo=windows&logoColor=white)
 ![Version](https://img.shields.io/badge/version-4.0.0-9B59B6)
@@ -28,7 +28,7 @@ and partial downloads — classifies them, and cleans them **only after your
 explicit confirmation**. No auto-delete, no dark patterns.
 
 Built as a native Windows application: a **Go core** (all filesystem
-logic), a **Wails v2** desktop shell and a **React/TypeScript** UI.
+logic), a **Wails v3** desktop shell and a **React/TypeScript** UI.
 No runtime dependencies — just run the EXE.
 
 > 💾 **No build needed to use it:** grab `JunkFuck.exe` from the
@@ -50,6 +50,7 @@ No runtime dependencies — just run the EXE.
 - 🌐 **English & Persian (RTL)** — switchable from the sidebar
 - 🎨 **Dark-first modern UI** — Tailwind CSS, shadcn-style components
 - 📦 **Auto releases** — tag-driven builds, GitHub Releases and Telegram notifications
+- 🔄 **In-app updates** — official Wails v3 updater checks GitHub Releases, verifies checksums and installs on demand
 
 ---
 
@@ -97,13 +98,17 @@ Download `JunkFuck.exe` from the latest
 
 - **Go 1.23+**
 - **Node.js 20+** (npm)
-- **Wails CLI** (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
+- **Wails v3 CLI** (`go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.6`)
 - Windows 10/11 with WebView2 runtime
+
+> **Wails v3 is pinned at `v3.0.0-beta.6`** (pre-GA). Version bumps are
+> deliberate: update `go.mod`, reinstall `wails3`, regenerate bindings and
+> re-verify the build.
 
 ### Run in dev mode
 
 ```bash
-wails dev
+wails3 dev
 ```
 
 This builds the Go backend, starts the Vite dev server and launches the app
@@ -117,9 +122,10 @@ with hot reload.
 | Vet | `go vet ./...` |
 | Format check | `gofmt -l .` |
 | Build frontend | `cd frontend && npm ci && npm run build` |
-| Regenerate Wails bindings | `wails generate module` (after changing `app.go`) |
-| Build EXE | `wails build -clean` |
-| Build EXE with version | `wails build -clean -ldflags "-X main.Version=4.0.0"` |
+| Regenerate Wails bindings | `wails3 generate bindings -clean=true -ts` (after changing a service) |
+| Build EXE | `wails3 build` |
+| Build EXE with version | `wails3 build VERSION=4.0.0` |
+| Generate icons | `wails3 generate icons -input appicon.png -windowsfilename windows/icon.ico` (in `build/`) |
 
 > ⚠️ The Go binary embeds the built frontend (`go:embed frontend/dist`), so
 > run `npm run build` before any `go build`/`go test` in a fresh checkout
@@ -130,8 +136,8 @@ with hot reload.
 ## 🏗️ Architecture
 
 ```
-app.go / main.go          Wails desktop layer (async scans, events, sessions)
-internal/
+main.go / services/       Wails v3 layer (app wiring, services, updater)
+internal/  (pure Go core, no Wails imports)
 ├── classifier/           explicit junk rules (extensions, folders, tokens)
 ├── protection/           protected paths & apps (backend-enforced)
 ├── scanner/              read-only async walk, progress, cancellation
@@ -139,8 +145,20 @@ internal/
 ├── filesystem/           canonicalization, reparse points, helpers
 ├── report/               cleanup report model
 └── platform/             OS version / elevation info
-frontend/                 React + TypeScript + Tailwind (EN/FA, RTL)
+frontend/                 React + TypeScript + Tailwind (EN/FA, RTL) + v3 bindings
+build/                    wails3 build config (config.yml, windows/, icons)
+Taskfile.yml              wails3 tasks (build / dev / generate)
 docs/MODERNIZATION-SPEC.md  the migration specification (source of truth)
+```
+
+```
+React / TypeScript
+    ↓ @wailsio/runtime (bindings + events)
+services/ (Wails v3)
+    ↓
+internal/ (pure Go core)
+    ↓
+Filesystem / Windows APIs
 ```
 
 Key principle: the **frontend never decides what is safe to delete**. All
@@ -154,9 +172,14 @@ automated safety tests.
 Releases are **tag-driven**. Pushing a `v*` tag triggers:
 
 1. Tests (Go + frontend build) — must pass
-2. Production build (`wails build`, amd64) + SHA-256 checksums
-3. GitHub Release with the EXE + checksums attached
-4. Rich Telegram announcement + EXE upload (optional)
+2. Production build (`wails3 build VERSION=vX.Y.Z`, amd64) — the version is
+   injected via `-ldflags` from the tag (single source of truth)
+3. SHA-256 checksums
+4. GitHub Release with the EXE + checksums attached
+5. Rich Telegram announcement + EXE upload (optional)
+
+The GitHub Release is also the **update source**: the in-app updater reads
+`JunkFuck-*.exe` + `SHA256SUMS` from it.
 
 ```bash
 git tag v4.0.0

@@ -49,7 +49,7 @@ jobs:
           go test ./...
 
   build:
-    name: Production build (amd64)
+    name: Production build
     needs: check
     runs-on: windows-latest
     steps:
@@ -66,28 +66,43 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install Wails CLI
+      - name: Install pinned Wails v3 CLI
         shell: bash
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.6
 
-      - name: Build production EXE
+      # VERSION is injected into main.Version via -ldflags, so the app and
+      # the in-app updater report the exact tagged release version. Two
+      # architectures are built (amd64 + arm64) and renamed to
+      # JunkFuck-windows-<arch>.exe — the Wails v3 updater's default asset
+      # matcher selects its artifact by matching "windows" + arch in the
+      # filename.
+      - name: Build production EXE (amd64)
         shell: bash
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          wails build -clean -skipbindings -ldflags "-X main.Version=${VERSION}"
+          wails3 build VERSION="${GITHUB_REF_NAME#v}"
+          mv bin/JunkFuck.exe bin/JunkFuck-windows-amd64.exe
 
+      - name: Build production EXE (arm64)
+        shell: bash
+        run: |
+          GOARCH=arm64 wails3 build VERSION="${GITHUB_REF_NAME#v}"
+          mv bin/JunkFuck.exe bin/JunkFuck-windows-arm64.exe
+
+      # sha256sum-style sidecar. The updater's github provider is configured
+      # with ChecksumAsset="SHA256SUMS" (exact asset name, no .txt) and parses
+      # "<hex>  <basename>" lines to verify the downloaded artifact.
       - name: Generate checksums
         shell: pwsh
         run: |
-          Get-ChildItem build/bin/*.exe | ForEach-Object {
+          Get-ChildItem bin/*.exe | ForEach-Object {
             "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
-          } | Set-Content -Encoding ascii build/bin/SHA256SUMS.txt
+          } | Set-Content -Encoding ascii bin/SHA256SUMS
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: release-artifacts
-          path: build/bin/
+          path: bin/
           if-no-files-found: error
 
   release:
@@ -108,17 +123,18 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/JunkFuck.exe
-            dist/SHA256SUMS.txt
+            dist/JunkFuck-windows-amd64.exe
+            dist/JunkFuck-windows-arm64.exe
+            dist/SHA256SUMS
           generate_release_notes: true
           draft: false
           prerelease: false
 
       # Rich Telegram distribution: one clean HTML announcement plus the
-      # freshly built EXE attached to the channel.
+      # freshly built EXE attached to the channel. Telegram is only a
+      # distribution layer — GitHub Releases remain the update source of
+      # truth (the in-app updater reads them directly).
       # Secrets (optional): TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID.
-      # continue-on-error keeps the GitHub Release green even if Telegram
-      # is down - the release is the source of truth, Telegram is extra.
       - name: Send release to Telegram
         continue-on-error: true
         env:
@@ -133,15 +149,9 @@ jobs:
             exit 0
           fi
 
-          msg="🧹 <b>JunkFuck Desktop ${TAG} released!</b>
-
-          A native Windows desktop build is out - no Python required:
-
-          🖥️ <b>Windows</b> — <a href=\"https://github.com/${REPO}/releases/download/${TAG}/JunkFuck.exe\">Download EXE</a>
-
-          📦 <a href=\"${RELEASE_URL}\">View release on GitHub</a>
-
-          ⚠️ SmartScreen may warn about the unsigned EXE — click <b>More info</b> → <b>Run anyway</b>. It's the same open-source code you can read in the repo."
+          # $'...' so \n renders as real newlines (double quotes would send
+          # literal backslash-n to Telegram).
+          msg=$'🧹 <b>JunkFuck ${TAG} released!</b>\n\nA native Windows desktop build is out - no Python required:\n\n🖥️ <b>Windows x64</b> — <a href="https://github.com/${REPO}/releases/download/${TAG}/JunkFuck-windows-amd64.exe">Download EXE</a>\n🖥️ <b>Windows ARM64</b> — <a href="https://github.com/${REPO}/releases/download/${TAG}/JunkFuck-windows-arm64.exe">Download EXE</a>\n\n📦 <a href="${RELEASE_URL}">View release on GitHub</a>\n\n⚠️ SmartScreen may warn about the unsigned EXE — click <b>More info</b> → <b>Run anyway</b>. It\'s the same open-source code you can read in the repo.'
 
           curl --fail --silent --show-error \
             --form-string "chat_id=${CHAT_ID}" \
@@ -156,7 +166,7 @@ jobs:
               --form-string "chat_id=${CHAT_ID}" \
               --form-string "parse_mode=HTML" \
               -F "document=@${file}" \
-              --form-string "caption=🧹 <b>JunkFuck Desktop ${TAG}</b> - Windows EXE" \
+              --form-string "caption=🧹 <b>JunkFuck ${TAG}</b> - $(basename "$file")" \
               "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument" \
               || echo "::warning::Failed to send ${file} to Telegram"
           done

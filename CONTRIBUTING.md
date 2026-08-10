@@ -45,8 +45,11 @@ welcome in any form.
 
 ## Setting up the project
 
-Prerequisites: **Go 1.23+**, **Node.js 20+**, **Wails CLI**
-(`go install github.com/wailsapp/wails/v2/cmd/wails@latest`), Windows 10/11.
+Prerequisites: **Go 1.23+**, **Node.js 20+**, **Wails v3 CLI**
+(`go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.6`), Windows 10/11.
+
+> Wails v3 is pinned at `v3.0.0-beta.6` (pre-GA). Version bumps are deliberate:
+> update `go.mod`, reinstall `wails3`, regenerate bindings, re-verify the build.
 
 ```bash
 # 1. Fork the repo, then clone your fork
@@ -66,8 +69,8 @@ go test ./...
 ## Project layout
 
 ```
-app.go / main.go          Wails desktop layer (bound methods, events)
-internal/
+main.go / services/       Wails v3 layer (app wiring, services, updater)
+internal/                 pure Go core — NO Wails imports allowed
 ├── classifier/           explicit junk rules
 ├── protection/           protected paths & apps
 ├── scanner/              async read-only scan, progress, cancellation
@@ -75,9 +78,10 @@ internal/
 ├── filesystem/           path helpers, reparse points
 ├── report/               report model
 └── platform/             OS version / elevation
-frontend/                 React + TS + Tailwind (EN/FA + RTL)
+frontend/                 React + TS + Tailwind (EN/FA + RTL) + v3 bindings
+build/                    wails3 build config (config.yml, windows/, icons)
+Taskfile.yml              wails3 tasks (build / dev / generate)
 docs/MODERNIZATION-SPEC.md  architecture specification (source of truth)
-docs/MODERNIZATION-SPEC.md    the migration specification (source of truth)
 ```
 
 ## Development workflow
@@ -106,17 +110,21 @@ non-modification, session-scoped deletion, revalidation.
 
 - Go: standard `gofmt`, explicit error handling, no `panic`, package
   comments, no new dependencies without discussion.
-- The Core (`internal/`) must stay independent of Wails/React.
-- Frontend: TypeScript strict mode; types come from the Wails-generated
-  models (`frontend/wailsjs/go/models.ts`) — after changing `app.go`, run
-  `wails generate module` and commit the updated bindings.
+- The Core (`internal/`) must stay independent of Wails/React — a future
+  Wails upgrade must not touch scanner/cleaner/safety code.
+- Frontend: TypeScript strict mode; types come from the Wails v3-generated
+  bindings (`frontend/bindings/...`) — after changing a `services/*` struct,
+  run `wails3 generate bindings -clean=true -ts` and commit the output.
+- The updater (`services/update_service.go`) wraps the official Wails v3
+  updater; never accept update URLs from the frontend.
 - No dependency bloat: prefer hand-rolled components over huge libraries.
 
 ## Release process
 
 Releases are tag-driven (`v*`). See [README.md](README.md#-release-process).
-The pipeline: tests → production build → GitHub Release → Telegram
-notification. Telegram is best-effort and must never invalidate the release.
+The pipeline: tests → `wails3 build VERSION=vX.Y.Z` → checksums → GitHub
+Release → Telegram notification. Telegram is best-effort and must never
+invalidate the release. The GitHub Release also feeds the in-app updater.
 
 ## Pull request checklist
 

@@ -1,7 +1,13 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import type { model, platform, report } from "../../wailsjs/go/models";
-import * as backend from "../../wailsjs/go/main/App";
-import { EventsOff, EventsOn } from "../../wailsjs/runtime/runtime";
+import * as scannerSvc from "../../bindings/github.com/kof-huskai/Junk-Fuck/services/scannerservice";
+import * as cleanupSvc from "../../bindings/github.com/kof-huskai/Junk-Fuck/services/cleanupservice";
+import * as settingsSvc from "../../bindings/github.com/kof-huskai/Junk-Fuck/services/settingsservice";
+import * as updateSvc from "../../bindings/github.com/kof-huskai/Junk-Fuck/services/updateservice";
+import type * as model from "../../bindings/github.com/kof-huskai/Junk-Fuck/internal/model/models";
+import type * as platform from "../../bindings/github.com/kof-huskai/Junk-Fuck/internal/platform/models";
+import type * as report from "../../bindings/github.com/kof-huskai/Junk-Fuck/internal/report/models";
+import type * as services from "../../bindings/github.com/kof-huskai/Junk-Fuck/services/models";
+import { Events } from "@wailsio/runtime";
 
 export interface Settings {
   targets: string;
@@ -20,12 +26,16 @@ interface StoreValue {
   appInfo: Record<string, string> | null;
   protectedCount: number;
   settings: Settings;
+  updateState: services.UpdateState | null;
   setSettings: (s: Partial<Settings>) => void;
   startScan: (targets: string[]) => Promise<void>;
   cancelScan: () => void;
   refreshCandidates: () => Promise<void>;
   refreshMeta: () => Promise<void>;
   cleanup: (dryRun: boolean, selected: string[]) => Promise<report.Report | null>;
+  checkForUpdates: () => Promise<void>;
+  installUpdate: () => Promise<void>;
+  refreshUpdate: () => Promise<void>;
 }
 
 const Ctx = createContext<StoreValue | null>(null);
@@ -41,6 +51,7 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
   const [systemInfo, setSystemInfo] = useState<platform.Info | null>(null);
   const [appInfo, setAppInfo] = useState<Record<string, string> | null>(null);
   const [protectedCount, setProtectedCount] = useState(0);
+  const [updateState, setUpdateState] = useState<services.UpdateState | null>(null);
   const [settings, setSettingsState] = useState<Settings>(() => ({
     targets: localStorage.getItem("jf.targets") ?? "C:\\",
     dryRun: localStorage.getItem("jf.dryRun") !== "0",
@@ -57,18 +68,23 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
 
   const refreshCandidates = useCallback(async () => {
     if (!scanId) return;
-    setCandidates(await backend.GetCandidates(scanId));
+    const list = await scannerSvc.GetCandidates(scanId);
+    if (list) setCandidates(list);
   }, [scanId]);
 
   const refreshMeta = useCallback(async () => {
     const [info, app, paths] = await Promise.all([
-      backend.GetSystemInfo().catch(() => null),
-      backend.GetAppInfo().catch(() => null),
-      backend.GetProtectedPaths().catch(() => [] as string[]),
+      scannerSvc.GetSystemInfo().catch(() => null),
+      settingsSvc.GetAppInfo().catch(() => null),
+      scannerSvc.GetProtectedPaths().catch(() => null),
     ]);
     if (info) setSystemInfo(info);
-    if (app) setAppInfo(app);
-    setProtectedCount(paths.length);
+    if (app) setAppInfo(app as Record<string, string>);
+    setProtectedCount((paths ?? []).length);
+  }, []);
+
+  const refreshUpdate = useCallback(async () => {
+    setUpdateState(await updateSvc.GetUpdateState().catch(() => null));
   }, []);
 
   const startScan = useCallback(async (targets: string[]) => {
@@ -78,7 +94,7 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
     setCancelled(false);
     setScanning(true);
     try {
-      const id = await backend.StartScan(targets);
+      const id = await scannerSvc.StartScan(targets);
       setScanId(id);
       setProgress({ scanId: id, scannedFiles: 0, candidates: 0, errors: 0, currentPath: "", done: false });
     } catch (err) {
@@ -88,18 +104,26 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const cancelScan = useCallback(() => {
-    if (scanId) backend.CancelScan(scanId);
+    if (scanId) void scannerSvc.CancelScan(scanId);
   }, [scanId]);
 
   const cleanup = useCallback(
     async (dryRun: boolean, selected: string[]) => {
       if (!scanId) return null;
-      const rep = await backend.Cleanup(dryRun, scanId, selected);
+      const rep = await cleanupSvc.Cleanup(dryRun, scanId, selected);
       setLastReport(rep);
       return rep;
     },
     [scanId],
   );
+
+  const checkForUpdates = useCallback(async () => {
+    setUpdateState(await updateSvc.CheckForUpdates());
+  }, []);
+
+  const installUpdate = useCallback(async () => {
+    setUpdateState(await updateSvc.InstallUpdate());
+  }, []);
 
   const value = useMemo<StoreValue>(
     () => ({
@@ -114,22 +138,27 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
       appInfo,
       protectedCount,
       settings,
+      updateState,
       setSettings,
       startScan,
       cancelScan,
       refreshCandidates,
       refreshMeta,
       cleanup,
+      checkForUpdates,
+      installUpdate,
+      refreshUpdate,
     }),
-    [scanId, scanning, cancelled, progress, candidates, scanErrors, lastReport, systemInfo, appInfo, protectedCount, settings, setSettings, startScan, cancelScan, refreshCandidates, refreshMeta, cleanup],
+    [scanId, scanning, cancelled, progress, candidates, scanErrors, lastReport, systemInfo, appInfo, protectedCount, settings, updateState, setSettings, startScan, cancelScan, refreshCandidates, refreshMeta, cleanup, checkForUpdates, installUpdate, refreshUpdate],
   );
 
   // Live event wiring (runs once per provider mount; StrictMode-safe).
   useEffect(() => {
-    EventsOn("scan:progress", (p: model.Progress) => {
-      setProgress(p);
+    const offProgress = Events.On("scan:progress", (ev) => {
+      setProgress(ev.data as model.Progress);
     });
-    EventsOn("scan:done", (e: { scanId: string; cancelled: boolean; error?: string }) => {
+    const offDone = Events.On("scan:done", (ev) => {
+      const e = ev.data as { scanId: string; cancelled: boolean; error?: string };
       setScanning(false);
       setCancelled(!!e.cancelled);
       if (e.error) {
@@ -137,22 +166,30 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
       }
       void (async () => {
         try {
-          setCandidates(await backend.GetCandidates(e.scanId));
+          const list = await scannerSvc.GetCandidates(e.scanId);
+          if (list) setCandidates(list);
         } catch {
           // session expired; ignore
         }
         try {
-          setScanErrors(await backend.GetScanErrors(e.scanId));
+          const errs = await scannerSvc.GetScanErrors(e.scanId);
+          if (errs) setScanErrors(errs);
         } catch {
           // no errors yet
         }
       })();
     });
     return () => {
-      EventsOff("scan:progress");
-      EventsOff("scan:done");
+      offProgress();
+      offDone();
+      Events.Off("scan:progress", "scan:done");
     };
   }, []);
+
+  // Keep the updater state fresh after install/check operations.
+  useEffect(() => {
+    void refreshUpdate();
+  }, [refreshUpdate]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

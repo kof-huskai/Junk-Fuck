@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUp, CheckCircle2 } from "lucide-react";
 import { useI18n } from "../i18n";
 import { useStore } from "../lib/store";
 import { formatBytes, CATEGORY_KEYS } from "../lib/format";
-import type { model } from "../../wailsjs/go/models";
+import type * as model from "../../bindings/github.com/kof-huskai/Junk-Fuck/internal/model/models";
 import { Badge, Button, Card, Checkbox, Dialog, EmptyState, Input, Select } from "../components/ui";
 
 const SORT_KEYS = ["size", "name", "category"] as const;

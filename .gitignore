@@ -1,6 +1,10 @@
 # Go / Wails build output
-build/
 *.exe
+bin/
+build/bin/
+build/build/
+build/darwin/
+.task/
 
 # Node / frontend
 frontend/node_modules/
