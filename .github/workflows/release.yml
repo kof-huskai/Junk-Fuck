@@ -135,10 +135,13 @@ jobs:
 
           ⚠️ SmartScreen may warn about the unsigned EXE — click <b>More info</b> → <b>Run anyway</b>. It's the same open-source script you can read in the repo."
 
+          # chat_id may start with "@" (e.g. @channelname) - use
+          # --form-string so curl sends it literally instead of trying
+          # to open it as a file (that would fail with exit 26).
           curl --fail --silent --show-error \
-            -F "chat_id=${CHAT_ID}" \
-            -F "parse_mode=HTML" \
-            -F "text=${msg}" \
+            --form-string "chat_id=${CHAT_ID}" \
+            --form-string "parse_mode=HTML" \
+            --form-string "text=${msg}" \
             "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
             || echo "::warning::Failed to send announcement to Telegram"
 
@@ -152,10 +155,10 @@ jobs:
 
           📦 <a href=\"${RELEASE_URL}\">View release on GitHub</a>"
             curl --fail --silent --show-error \
-              -F "chat_id=${CHAT_ID}" \
-              -F "parse_mode=HTML" \
+              --form-string "chat_id=${CHAT_ID}" \
+              --form-string "parse_mode=HTML" \
               -F "document=@${file}" \
-              -F "caption=${caption}" \
+              --form-string "caption=${caption}" \
               "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument" \
               || echo "::warning::Failed to send ${name} to Telegram"
           done

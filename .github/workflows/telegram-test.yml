@@ -33,20 +33,23 @@ jobs:
 
           This message was sent from the <b>Telegram Test</b> GitHub Actions workflow - <a href=\"https://github.com/${GITHUB_REPOSITORY}/actions\">view it on GitHub</a>."
 
+          # chat_id may start with "@" (e.g. @channelname) - use
+          # --form-string so curl sends it literally instead of trying
+          # to open it as a file (that would fail with exit 26).
           curl --fail --silent --show-error \
-            -F "chat_id=${CHAT_ID}" \
-            -F "parse_mode=HTML" \
-            -F "text=${msg}" \
+            --form-string "chat_id=${CHAT_ID}" \
+            --form-string "parse_mode=HTML" \
+            --form-string "text=${msg}" \
             "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage"
 
           # Also exercise the document path used by the release notification.
           printf 'JunkFuck Telegram test file\n' > test.txt
           caption="🧹 <b>JunkFuck Telegram test</b> - document upload works too ✅"
           curl --fail --silent --show-error \
-            -F "chat_id=${CHAT_ID}" \
-            -F "parse_mode=HTML" \
+            --form-string "chat_id=${CHAT_ID}" \
+            --form-string "parse_mode=HTML" \
             -F "document=@test.txt" \
-            -F "caption=${caption}" \
+            --form-string "caption=${caption}" \
             "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument"
 
           echo "Telegram test message sent successfully."
