@@ -99,6 +99,19 @@ tasks:
     env:
       PRODUCTION: '{{if eq .DEV "true"}}false{{else}}true{{end}}'
 
+  # Stage the built frontend into embed/ (which is NOT gitignored) so
+  # go:embed picks it up. go:embed silently skips files matched by
+  # .gitignore, and frontend/dist/ is gitignored — embedding dist directly
+  # produces a binary with no CSS/JS (the app renders unstyled).
+  # Runs after build:frontend (dist exists) and before the Go build.
+  stage:assets:
+    summary: Copies frontend/dist into embed/ for go:embed
+    internal: true
+    run: once
+    shell: bash
+    cmds:
+      - rm -rf "{{.ROOT_DIR}}/embed" && mkdir -p "{{.ROOT_DIR}}/embed" && cp -r "{{.ROOT_DIR}}/frontend/dist/." "{{.ROOT_DIR}}/embed/"
+
   frontend:run:
     summary: Run a frontend script with selected runner
     cmds:

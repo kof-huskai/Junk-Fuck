@@ -11,7 +11,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/updater/providers/github"
 )
 
-//go:embed all:frontend/dist
+//go:embed all:embed
 var assets embed.FS
 
 // Version is injected at release-build time via:
