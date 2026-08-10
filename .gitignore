@@ -5,13 +5,13 @@ build/
 # Node / frontend
 frontend/node_modules/
 frontend/dist/
+frontend/package.json.md5
 
-# Legacy Python (kept under legacy/ for reference)
-__pycache__/
-*.py[cod]
-*.egg-info/
+# Local dev environments (any language)
 venv/
 .venv/
+__pycache__/
+*.py[cod]
 .pytest_cache/
 .ruff_cache/
 ruff_out.txt

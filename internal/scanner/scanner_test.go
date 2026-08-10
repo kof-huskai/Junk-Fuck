@@ -84,15 +84,27 @@ func TestScanIsReadOnly(t *testing.T) {
 	}
 }
 
-func TestScanSkipsProtectedTarget(t *testing.T) {
-	pr := protection.New(protection.Rules{Env: protection.Env{}})
-	s := newTestScanner(pr)
-	res := s.Scan(context.Background(), "t3", []string{`C:\Windows`}, nil)
-	if len(res.Candidates) != 0 {
-		t.Error("protected target must yield no candidates")
+func TestScanProtectedTargetIsWalkedReadOnly(t *testing.T) {
+	// A protected target (e.g. C:\ or C:\Windows) must still be scanned:
+	// scanning is read-only, protection only forbids deletion. Candidates
+	// found there are simply marked protected and never deletable.
+	root := t.TempDir()
+	pr := protection.New(protection.Rules{Env: protection.Env{}, Paths: []string{root}})
+	if !pr.IsProtected(root) {
+		t.Fatal("test root should be protected")
 	}
-	if len(res.Errors) == 0 {
-		t.Error("expected an error explaining the protected target")
+	writeFile(t, filepath.Join(root, "junk.tmp"), 10)
+
+	s := newTestScanner(pr)
+	res := s.Scan(context.Background(), "t3", []string{root}, nil)
+	if len(res.Errors) != 0 {
+		t.Errorf("scanning a protected target must not error, got %v", res.Errors)
+	}
+	if len(res.Candidates) != 1 {
+		t.Fatalf("expected 1 candidate from protected target, got %d", len(res.Candidates))
+	}
+	if !res.Candidates[0].Protected {
+		t.Error("candidate under a protected target must be marked protected")
 	}
 }
 

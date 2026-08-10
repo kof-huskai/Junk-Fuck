@@ -45,6 +45,8 @@ export const fa: Record<string, string> = {
   "res.found": "{n} مورد زباله · {size}",
   "res.selectAll": "انتخاب همه",
   "res.selectNone": "عدم انتخاب",
+  "res.sortAsc": "مرتب‌سازی صعودی",
+  "res.sortDesc": "مرتب‌سازی نزولی",
   "res.filterAll": "همه‌ی دسته‌ها",
   "res.search": "جستجو…",
   "res.clean": "پاک‌سازی انتخاب‌شده",

@@ -76,11 +76,10 @@ func (s *Scanner) Scan(ctx context.Context, scanID string, targets []string, pro
 			scanErrors = append(scanErrors, model.ScanError{Path: target, Error: err.Error()})
 			continue
 		}
-		if s.protection.IsProtected(canon) {
-			scanErrors = append(scanErrors, model.ScanError{Path: canon, Error: "target is a protected path and was skipped"})
-			continue
-		}
 
+		// Scanning is read-only: protected targets (e.g. C:\ drive root) may
+		// still be walked. Protection only forbids *deletion*, and the
+		// cleaner re-validates every candidate before touching anything.
 		walkErr := filepath.WalkDir(canon, func(path string, d fs.DirEntry, err error) error {
 			if ctx.Err() != nil {
 				return ctx.Err()
@@ -100,7 +99,10 @@ func (s *Scanner) Scan(ctx context.Context, scanID string, targets []string, pro
 			key := filesystem.CompareKey(path)
 
 			if d.IsDir() {
-				if s.protection.IsProtected(path) {
+				// Skip protected subdirectories (e.g. C:\Windows when scanning
+				// C:\) but never skip the scan target itself - otherwise a
+				// protected drive root like C:\ would scan nothing.
+				if path != canon && s.protection.IsProtected(path) {
 					return fs.SkipDir
 				}
 				// Never traverse symbolic links / junctions: they can redirect

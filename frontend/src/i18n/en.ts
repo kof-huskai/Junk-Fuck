@@ -45,6 +45,8 @@ export const en: Record<string, string> = {
   "res.found": "{n} junk items · {size}",
   "res.selectAll": "Select all",
   "res.selectNone": "Select none",
+  "res.sortAsc": "Sort ascending",
+  "res.sortDesc": "Sort descending",
   "res.filterAll": "All categories",
   "res.search": "Search…",
   "res.clean": "Clean selected",

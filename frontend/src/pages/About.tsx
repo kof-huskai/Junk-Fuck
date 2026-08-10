@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { ShieldCheck, Sparkles } from "lucide-react";
 import { useI18n } from "../i18n";
 import { useStore } from "../lib/store";
 import { Badge, Card } from "../components/ui";
@@ -14,7 +15,9 @@ export function About() {
   return (
     <div className="flex max-w-2xl flex-col gap-6 p-8">
       <div className="flex items-center gap-4">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/15 text-3xl">🧹</div>
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/15 text-accent">
+          <Sparkles size={28} />
+        </div>
         <div>
           <h1 className="text-2xl font-bold text-white">{t("app.name")}</h1>
           <p className="text-sm text-muted">{t("app.tagline")}</p>
@@ -42,7 +45,7 @@ export function About() {
           <div>
             <p className="text-xs text-muted">{t("about.admin")}</p>
             <p className="mt-1 font-semibold text-white">
-              {systemInfo?.isAdmin ? <Badge color="green">✓ Admin</Badge> : t("about.admin.no")}
+              {systemInfo?.isAdmin ? <Badge color="green"><ShieldCheck size={12} className="me-1" /> Admin</Badge> : t("about.admin.no")}
             </p>
           </div>
         </div>

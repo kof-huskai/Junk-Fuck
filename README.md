@@ -27,9 +27,9 @@ your drives for junk — temporary files, caches, logs, crash dumps, backups
 and partial downloads — classifies them, and cleans them **only after your
 explicit confirmation**. No auto-delete, no dark patterns.
 
-It is a complete rewrite of the original Python CLI: a **Go core** (all
-filesystem logic), a **Wails v2** desktop shell and a **React/TypeScript**
-UI. **Python is no longer required.**
+Built as a native Windows application: a **Go core** (all filesystem
+logic), a **Wails v2** desktop shell and a **React/TypeScript** UI.
+No runtime dependencies — just run the EXE.
 
 > 💾 **No build needed to use it:** grab `JunkFuck.exe` from the
 > [Releases page](https://github.com/kof-huskai/Junk-Fuck/releases) and run
@@ -141,7 +141,6 @@ internal/
 └── platform/             OS version / elevation info
 frontend/                 React + TypeScript + Tailwind (EN/FA, RTL)
 docs/MODERNIZATION-SPEC.md  the migration specification (source of truth)
-legacy/python/            original Python CLI (reference only)
 ```
 
 Key principle: the **frontend never decides what is safe to delete**. All

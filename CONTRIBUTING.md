@@ -77,7 +77,7 @@ internal/
 └── platform/             OS version / elevation
 frontend/                 React + TS + Tailwind (EN/FA + RTL)
 docs/MODERNIZATION-SPEC.md  architecture specification (source of truth)
-legacy/python/            original Python CLI (reference only)
+docs/MODERNIZATION-SPEC.md    the migration specification (source of truth)
 ```
 
 ## Development workflow

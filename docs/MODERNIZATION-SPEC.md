@@ -1,6 +1,6 @@
 # Junk-Fuck Desktop Modernization
 
-**Status:** In progress (branch `feat/wails-desktop`)
+**Status:** Implemented — awaiting review on branch `feat/wails-desktop`
 **Last updated:** 2026-08-11
 **Version:** 4.0.0 (first desktop release)
 
@@ -90,7 +90,6 @@ Known weaknesses being fixed by this migration:
 │   │   └── App.tsx
 │   ├── package.json
 │   └── ...
-├── legacy/python/            original Python implementation (reference only)
 ├── tests/                    (Go tests live beside their packages)
 ├── docs/MODERNIZATION-SPEC.md
 └── .github/workflows/
@@ -409,7 +408,7 @@ only in `release.yml`.
 6. Frontend (Vite + React + TS + Tailwind, i18n, pages)
 7. Frontend build verification
 8. GitHub Actions rewrite (ci, release, build-exe)
-9. Legacy Python moved to `legacy/python/`
+9. Legacy Python implementation removed (see Decisions Log)
 10. Documentation (README, README.fa, CONTRIBUTING)
 11. Full verification loop; review; fix
 12. Push branch; open PR; user reviews and merges
@@ -422,9 +421,9 @@ only in `release.yml`.
   x86 toolchains add CI fragility; workflow is structured to add them later).
 - **shadcn/ui:** adopted as *style*, implemented with hand-rolled Tailwind
   components — no radix dependency tree.
-- **Legacy Python:** preserved under `legacy/python/` for behavioral
-  reference; not part of the production build. Removal decision documented at
-  the end of the migration.
+- **Legacy Python:** removed from the repository per project decision (the
+  Go implementation reached functional parity and the test suite covers the
+  important behavior; the Python CLI was not part of the production build).
 - **Broad keyword matching dropped:** `old`, `copy`, `~` substring rules from
   the Python version are not ported (dangerous). Rules are explicit and
   tested.

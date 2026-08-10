@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { Sparkles } from "lucide-react";
 
 /* ---------- Button ---------- */
 type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
@@ -160,7 +161,9 @@ export function Dialog({
 export function EmptyState({ title, hint }: { title: string; hint?: string }) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-      <div className="text-3xl">🧹</div>
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-panel-2 text-accent">
+        <Sparkles size={26} />
+      </div>
       <p className="text-sm font-medium text-slate-300">{title}</p>
       {hint && <p className="text-xs text-muted">{hint}</p>}
     </div>

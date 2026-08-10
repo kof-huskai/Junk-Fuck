@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { LayoutDashboard, Search, FolderOpen, History as HistoryIcon, Settings as SettingsIcon, Info, Sparkles } from "lucide-react";
 import { I18nProvider, useI18n } from "./i18n";
 import { AppStoreProvider, useStore } from "./lib/store";
 import { Dashboard } from "./pages/Dashboard";
@@ -20,13 +21,13 @@ function Shell() {
     void refreshMeta();
   }, [refreshMeta]);
 
-  const icons: Record<Page, string> = {
-    dashboard: "📊",
-    scanner: "🔍",
-    results: "🗂️",
-    history: "🕘",
-    settings: "⚙️",
-    about: "ℹ️",
+  const icons: Record<Page, ReactNode> = {
+    dashboard: <LayoutDashboard size={18} />,
+    scanner: <Search size={18} />,
+    results: <FolderOpen size={18} />,
+    history: <HistoryIcon size={18} />,
+    settings: <SettingsIcon size={18} />,
+    about: <Info size={18} />,
   };
 
   return (
@@ -34,7 +35,9 @@ function Shell() {
       {/* Sidebar */}
       <aside className="flex w-56 shrink-0 flex-col border-e border-border bg-panel">
         <div className="flex items-center gap-2.5 px-5 py-5">
-          <span className="text-2xl">🧹</span>
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent/15 text-accent">
+            <Sparkles size={18} />
+          </span>
           <div>
             <p className="text-sm font-bold text-white">{t("app.name")}</p>
             <p className="text-[10px] text-muted">v4 · Go + Wails</p>
@@ -50,7 +53,7 @@ function Shell() {
                 page === p ? "bg-accent-soft/40 text-white" : "text-muted hover:bg-panel-2 hover:text-white"
               }`}
             >
-              <span className="text-base">{icons[p]}</span>
+              <span className="flex w-5 justify-center">{icons[p]}</span>
               {t(`nav.${p}`)}
             </button>
           ))}

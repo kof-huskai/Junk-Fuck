@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { ArrowDown, ArrowUp, CheckCircle2 } from "lucide-react";
 import { useI18n } from "../i18n";
 import { useStore } from "../lib/store";
 import { formatBytes, CATEGORY_KEYS } from "../lib/format";
@@ -86,7 +87,9 @@ export function Results() {
       {lastReport && (
         <div className={`flex flex-wrap items-center gap-x-5 gap-y-1 rounded-xl border px-4 py-3 text-sm ${lastReport.dryRun ? "border-accent/40 bg-accent-soft/30" : "border-success/30 bg-[#0f2b23]"}`}>
           <span className="font-semibold text-white">{t(lastReport.dryRun ? "hist.dryRun" : "hist.title")}</span>
-          <span className="text-success">✓ {t("hist.deleted")}: {lastReport.deletedCount}</span>
+          <span className="inline-flex items-center gap-1 text-success">
+            <CheckCircle2 size={14} /> {t("hist.deleted")}: {lastReport.deletedCount}
+          </span>
           <span className="text-warn">{t("hist.skipped")}: {lastReport.skippedCount}</span>
           <span className="text-danger">{t("hist.failed")}: {lastReport.failedCount}</span>
           <span className="text-accent">{t("hist.freed")}: {formatBytes(lastReport.bytesFreed)}</span>
@@ -119,8 +122,8 @@ export function Results() {
                 </option>
               ))}
             </Select>
-            <Button size="sm" variant="ghost" onClick={() => setSortDesc(!sortDesc)}>
-              {sortDesc ? "↓" : "↑"}
+            <Button size="sm" variant="ghost" onClick={() => setSortDesc(!sortDesc)} title={sortDesc ? t("res.sortAsc") : t("res.sortDesc")}>
+              {sortDesc ? <ArrowDown size={14} /> : <ArrowUp size={14} />}
             </Button>
             <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("res.search")} className="ms-auto max-w-56 !py-1.5 text-xs" />
           </div>

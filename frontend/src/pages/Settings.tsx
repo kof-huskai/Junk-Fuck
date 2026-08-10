@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Check } from "lucide-react";
 import { useI18n, type Language } from "../i18n";
 import { useStore } from "../lib/store";
 import { Button, Card, Checkbox, Input, Select } from "../components/ui";
@@ -48,7 +49,7 @@ export function Settings() {
             <Button variant="primary" onClick={save}>
               {t("set.saved")}
             </Button>
-            {saved && <span className="text-sm text-success">✓</span>}
+            {saved && <span className="inline-flex items-center text-success"><Check size={16} /></span>}
           </div>
         </div>
       </Card>
