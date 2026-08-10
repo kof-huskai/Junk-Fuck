@@ -139,7 +139,8 @@ jobs:
             -F "chat_id=${CHAT_ID}" \
             -F "parse_mode=HTML" \
             -F "text=${msg}" \
-            "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage"
+            "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+            || echo "::warning::Failed to send announcement to Telegram"
 
           # Attach the freshly built EXEs directly to the channel.
           for file in dist/JunkFuck-*.exe; do
