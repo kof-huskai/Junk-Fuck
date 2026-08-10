@@ -9,94 +9,109 @@ permissions:
   contents: write
 
 jobs:
-  test:
+  check:
     name: Tests
     runs-on: windows-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+      - uses: actions/setup-go@v5
         with:
-          python-version: "3.12"
+          go-version-file: go.mod
+          cache: true
 
-      - name: Install dependencies
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build frontend
+        working-directory: frontend
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
+          npm ci
+          npm run build
 
-      - name: Run tests
-        run: python -m pytest -v
+      - name: Format check
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "gofmt needed for:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Vet + Test
+        run: |
+          go vet ./...
+          go test ./...
 
   build:
-    name: Build JunkFuck (${{ matrix.arch }})
-    needs: test
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: x64
-            os: windows-latest
-            python-arch: x64
-          - arch: x86
-            os: windows-latest
-            python-arch: x86
-          - arch: arm64
-            os: windows-11-arm
-            python-arch: arm64
+    name: Production build (amd64)
+    needs: check
+    runs-on: windows-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python 3.12 (${{ matrix.arch }})
-        uses: actions/setup-python@v5
+      - uses: actions/setup-go@v5
         with:
-          python-version: "3.12"
-          architecture: ${{ matrix.python-arch }}
+          go-version-file: go.mod
+          cache: true
 
-      - name: Install build tools
-        run: pip install colorama "pyinstaller>=6.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
-      - name: Build executable with PyInstaller
-        run: pyinstaller --onefile --clean --noconfirm --name JunkFuck junkfuck.py
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
-      - name: Rename artifact
-        run: Move-Item dist/JunkFuck.exe dist/JunkFuck-${{ matrix.arch }}.exe -Force
+      - name: Build production EXE
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          wails build -clean -skipbindings -ldflags "-X main.Version=${VERSION}"
 
-      - name: Upload artifact
+      - name: Generate checksums
+        shell: pwsh
+        run: |
+          Get-ChildItem build/bin/*.exe | ForEach-Object {
+            "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
+          } | Set-Content -Encoding ascii build/bin/SHA256SUMS.txt
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: JunkFuck-${{ matrix.arch }}
-          path: dist/JunkFuck-${{ matrix.arch }}.exe
+          name: release-artifacts
+          path: build/bin/
           if-no-files-found: error
 
   release:
-    name: Create GitHub Release
+    name: GitHub Release + Telegram
     needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download all executables
+      - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: JunkFuck-*
+          name: release-artifacts
           path: dist
-          merge-multiple: true
 
-      - name: Create Release and upload executables
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/JunkFuck-*.exe
+          files: |
+            dist/JunkFuck.exe
+            dist/SHA256SUMS.txt
           generate_release_notes: true
           draft: false
           prerelease: false
 
       # Rich Telegram distribution: one clean HTML announcement plus the
-      # freshly built EXEs attached to the channel.
+      # freshly built EXE attached to the channel.
       # Secrets (optional): TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID.
       # continue-on-error keeps the GitHub Release green even if Telegram
       # is down - the release is the source of truth, Telegram is extra.
@@ -109,35 +124,21 @@ jobs:
           REPO: ${{ github.repository }}
           RELEASE_URL: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}
         run: |
-          # Skip silently when the secrets haven't been configured yet.
           if [ -z "${BOT_TOKEN}" ] || [ -z "${CHAT_ID}" ]; then
             echo "::warning::TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID secrets not set - skipping Telegram notification."
             exit 0
           fi
 
-          # HTML parse_mode renders bold/links exactly like Telegram's own
-          # updates, and needs escaping only for &, <, >.
-          esc() { printf '%s' "$1" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g'; }
+          msg="🧹 <b>JunkFuck Desktop ${TAG} released!</b>
 
-          TAG_E="$(esc "${TAG}")"
-          REPO_E="$(esc "${REPO}")"
-          DL="https://github.com/${REPO_E}/releases/download/${TAG_E}"
+          A native Windows desktop build is out - no Python required:
 
-          msg="🧹 <b>JunkFuck ${TAG_E} released!</b>
-
-          Fresh Windows executables are out — grab yours:
-
-          🖥️ <b>Windows x64</b> — <a href=\"${DL}/JunkFuck-x64.exe\">Download EXE</a>
-          🖥️ <b>Windows x86</b> — <a href=\"${DL}/JunkFuck-x86.exe\">Download EXE</a>
-          🖥️ <b>Windows ARM64</b> — <a href=\"${DL}/JunkFuck-arm64.exe\">Download EXE</a>
+          🖥️ <b>Windows</b> — <a href=\"https://github.com/${REPO}/releases/download/${TAG}/JunkFuck.exe\">Download EXE</a>
 
           📦 <a href=\"${RELEASE_URL}\">View release on GitHub</a>
 
-          ⚠️ SmartScreen may warn about the unsigned EXE — click <b>More info</b> → <b>Run anyway</b>. It's the same open-source script you can read in the repo."
+          ⚠️ SmartScreen may warn about the unsigned EXE — click <b>More info</b> → <b>Run anyway</b>. It's the same open-source code you can read in the repo."
 
-          # chat_id may start with "@" (e.g. @channelname) - use
-          # --form-string so curl sends it literally instead of trying
-          # to open it as a file (that would fail with exit 26).
           curl --fail --silent --show-error \
             --form-string "chat_id=${CHAT_ID}" \
             --form-string "parse_mode=HTML" \
@@ -145,20 +146,13 @@ jobs:
             "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
             || echo "::warning::Failed to send announcement to Telegram"
 
-          # Attach the freshly built EXEs directly to the channel.
-          for file in dist/JunkFuck-*.exe; do
+          for file in dist/*.exe; do
             [ -e "${file}" ] || continue
-            name="$(basename "${file}")"
-            arch="${name#JunkFuck-}"
-            arch="${arch%.exe}"
-            caption="🧹 <b>JunkFuck ${TAG_E}</b> — <b>Windows ${arch}</b> EXE
-
-          📦 <a href=\"${RELEASE_URL}\">View release on GitHub</a>"
             curl --fail --silent --show-error \
               --form-string "chat_id=${CHAT_ID}" \
               --form-string "parse_mode=HTML" \
               -F "document=@${file}" \
-              --form-string "caption=${caption}" \
+              --form-string "caption=🧹 <b>JunkFuck Desktop ${TAG}</b> - Windows EXE" \
               "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument" \
-              || echo "::warning::Failed to send ${name} to Telegram"
+              || echo "::warning::Failed to send ${file} to Telegram"
           done

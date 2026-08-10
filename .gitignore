@@ -1,24 +1,21 @@
-# Python
+# Go / Wails build output
+build/
+*.exe
+
+# Node / frontend
+frontend/node_modules/
+frontend/dist/
+
+# Legacy Python (kept under legacy/ for reference)
 __pycache__/
 *.py[cod]
 *.egg-info/
-
-# Virtual environments
-.venv/
 venv/
-
-# PyInstaller build artifacts
-build/
-dist/
-*.spec
+.venv/
+.pytest_cache/
+.ruff_cache/
+ruff_out.txt
 
 # Editor
 .idea/
 .vscode/
-
-# Local lint output
-ruff_out.txt
-
-# Tool caches
-.pytest_cache/
-.ruff_cache/
