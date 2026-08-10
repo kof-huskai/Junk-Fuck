@@ -8,43 +8,41 @@ permissions:
 
 jobs:
   build:
-    name: Build JunkFuck (${{ matrix.arch }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: x64
-            os: windows-latest
-            python-arch: x64
-          - arch: x86
-            os: windows-latest
-            python-arch: x86
-          - arch: arm64
-            os: windows-11-arm
-            python-arch: arm64
+    name: Build JunkFuck EXE
+    runs-on: windows-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python 3.12 (${{ matrix.arch }})
-        uses: actions/setup-python@v5
+      - uses: actions/setup-go@v5
         with:
-          python-version: "3.12"
-          architecture: ${{ matrix.python-arch }}
+          go-version-file: go.mod
+          cache: true
 
-      - name: Install build tools
-        run: pip install colorama "pyinstaller>=6.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
-      - name: Build executable with PyInstaller
-        run: pyinstaller --onefile --clean --noconfirm --name JunkFuck junkfuck.py
+      - name: Install pinned Wails v3 CLI
+        shell: bash
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.6
 
-      - name: Rename artifact
-        run: Move-Item dist/JunkFuck.exe dist/JunkFuck-${{ matrix.arch }}.exe -Force
+      - name: Build EXE (amd64)
+        shell: bash
+        run: |
+          wails3 build VERSION="${GITHUB_SHA::8}"
+          mv bin/JunkFuck.exe bin/JunkFuck-windows-amd64.exe
+
+      - name: Build EXE (arm64)
+        shell: bash
+        run: |
+          GOARCH=arm64 wails3 build VERSION="${GITHUB_SHA::8}"
+          mv bin/JunkFuck.exe bin/JunkFuck-windows-arm64.exe
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: JunkFuck-${{ matrix.arch }}
-          path: dist/JunkFuck-${{ matrix.arch }}.exe
+          name: JunkFuck-exe
+          path: bin/*.exe
           if-no-files-found: error

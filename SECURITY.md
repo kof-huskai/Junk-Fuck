@@ -6,8 +6,8 @@ JUNKFUCK is a tool that **permanently deletes files**, so security matters here 
 
 | Version | Supported |
 | --- | --- |
-| 3.0.0 (current) | ✅ Supported |
-| < 3.0.0 | ❌ Not supported |
+| 4.0.0 (current) | ✅ Supported |
+| < 4.0.0 | ❌ Not supported |
 
 Only the latest release receives security fixes. If you're on an older version, please upgrade before reporting.
 
@@ -36,17 +36,19 @@ Only the latest release receives security fixes. If you're on an older version, 
 
 These are the parts most likely to matter if you're auditing the project:
 
-- **`_is_protected()`** — the core safety gate. Anything that changes how protected paths/apps are matched affects safety directly.
-- **`PROTECTED_APPS` / `PROTECTED_PATHS`** — the protection lists. Loosening these increases risk.
-- **`JUNK_EXTENSIONS` / `JUNK_FOLDERS`** — detection rules. Overly broad patterns could match legitimate user files.
-- **`delete_item()`** — the actual deletion path. It must always respect the protection checks.
-- **Dependencies** — `colorama` is the only dependency; keep it up to date.
+- **`internal/protection`** — the core safety gate. Anything that changes how protected paths/apps are matched affects safety directly.
+- **`internal/cleaner`** — the validated deletion path. It must always respect the protection checks and the scan-session scope.
+- **`internal/classifier`** — detection rules. Overly broad patterns could match legitimate user files.
+- **`internal/scanner`** — the read-only walk; it must never modify the filesystem.
+- **`services/cleanup_service.go`** — the Wails-facing boundary. It must never accept an arbitrary path from the frontend.
+- **Updater** (`services/update_service.go`) — update URLs are never accepted from the frontend; downloads are verified against the official Wails v3 updater + GitHub release checksums.
+- **Dependencies** — Go standard library + Wails v3 + React; keep them updated deliberately (Wails pinned at `v3.0.0-beta.6`).
 
 ## General safety notes for users
 
 - Always **review the items** the tool lists before confirming deletion — the tool asks for a reason.
 - Run **as Administrator only when needed**; a normal-user session is safer and usually sufficient.
 - The tool is designed to protect system paths and common apps, but **no list is perfect** — when in doubt, skip the item.
-- Use the latest version and install dependencies from the official PyPI index.
+- Use the latest version from the [Releases page](https://github.com/kof-huskai/Junk-Fuck/releases) or via the in-app updater.
 
 Thanks for helping keep JUNKFUCK safe for everyone. 🛡️

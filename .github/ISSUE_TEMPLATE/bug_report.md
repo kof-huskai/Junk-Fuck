@@ -17,7 +17,7 @@ assignees: ''
 
 ## Steps to reproduce
 
-1. Run `python junkfuck.py`
+1. Run `JunkFuck.exe` (or `wails3 dev` from source)
 2. ...
 3. ...
 
@@ -32,9 +32,9 @@ assignees: ''
 ## Environment
 
 - **OS / Windows version:** (e.g. Windows 11 23H2)
-- **Python version:** (e.g. 3.12.2)
-- **JUNKFUCK version:** (e.g. 3.0.0)
+- **JUNKFUCK version:** (e.g. 4.0.0)
 - **Ran as Administrator:** Yes / No
+- **Go version (if from source):** (e.g. 1.24.0)
 
 ## Console output / logs
 

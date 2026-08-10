@@ -1,0 +1,229 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0b0d12;
+  --color-panel: #12151d;
+  --color-panel-2: #1a1f2c;
+  --color-border: #242b3d;
+  --color-accent: #4f8cff;
+  --color-accent-soft: #27406e;
+  --color-danger: #ff5d5d;
+  --color-danger-soft: #4a2430;
+  --color-success: #3ddc97;
+  --color-warn: #ffc24b;
+  --color-muted: #8a93a8;
+  --font-sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+  /* Motion tokens — shared across the app for a cohesive feel. */
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-bg);
+  color: #e7eaf3;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  overflow: hidden;
+}
+
+/* Vazirmatn — applied automatically when the app switches to Persian
+   (the i18n layer sets document.documentElement.lang = "fa"). */
+html[lang="fa"] body,
+html[lang="fa"] input,
+html[lang="fa"] select,
+html[lang="fa"] button {
+  font-family: "Vazirmatn", var(--font-sans);
+}
+
+/* ---------- Page transitions ---------- */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-enter {
+  animation: page-enter 260ms var(--ease-out) both;
+}
+
+/* ---------- Dialog ---------- */
+@keyframes dialog-backdrop {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dialog-pop {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.dialog-backdrop {
+  animation: dialog-backdrop 180ms ease-out both;
+}
+
+.dialog-panel {
+  animation: dialog-pop 240ms var(--ease-spring) both;
+}
+
+@keyframes dialog-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes dialog-shrink {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+}
+
+.dialog-exit {
+  animation: dialog-fade-out 150ms ease-in both;
+}
+
+.dialog-exit-panel {
+  animation: dialog-shrink 150ms ease-in both;
+}
+
+/* ---------- Toast / banner ---------- */
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.slide-in {
+  animation: slide-in 220ms var(--ease-out) both;
+}
+
+/* ---------- Checkbox check pop ---------- */
+@keyframes check-pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-check {
+  animation: check-pop 180ms var(--ease-spring) both;
+}
+
+/* ---------- Table rows ---------- */
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.row-in {
+  animation: row-in 200ms var(--ease-out) both;
+}
+
+/* ---------- Progress shimmer ---------- */
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.progress-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0) 30%,
+    rgba(255, 255, 255, 0.35) 50%,
+    rgba(255, 255, 255, 0) 70%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+/* ---------- Scrollbars ---------- */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a3145;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #37405c;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ---------- Reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .page-enter,
+  .dialog-backdrop,
+  .dialog-panel,
+  .dialog-exit,
+  .dialog-exit-panel,
+  .slide-in,
+  .row-in,
+  .animate-check {
+    animation: none !important;
+  }
+  .progress-shimmer {
+    animation: none !important;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+  }
+}
