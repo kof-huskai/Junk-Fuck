@@ -43,12 +43,16 @@ tasks:
             ref: .OBFUSCATED
           DEV:
             ref: .DEV
-      - task: common:stage:assets
       - task: common:generate:icons
     preconditions:
       - sh: '{{if eq .OBFUSCATED "true"}}command -v garble >/dev/null 2>&1{{else}}true{{end}}'
         msg: "garble is required for obfuscated builds. Install it with: go install mvdan.cc/garble@v0.16.0 (requires Go 1.24+). See https://github.com/burrowers/garble/releases for version/toolchain compatibility."
+    # stage:assets must NOT be a parallel dep: Taskfile deps run concurrently,
+    # so it would race build:frontend and try to copy frontend/dist before it
+    # exists (fresh checkout / CI => 'cp: cannot stat frontend/dist' and the
+    # whole dep group aborts). As a cmd it runs after all deps have finished.
     cmds:
+      - task: common:stage:assets
       - task: generate:syso
         vars:
           ARCH: '{{.ARCH}}'
