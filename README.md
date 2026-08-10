@@ -49,7 +49,7 @@ No runtime dependencies — just run the EXE.
 - 📝 **History** — last cleanup report (deleted / skipped / failed / space freed)
 - 🌐 **English & Persian (RTL)** — switchable from the sidebar
 - 🎨 **Dark-first modern UI** — Tailwind CSS, shadcn-style components
-- 📦 **Auto releases** — tag-driven builds, GitHub Releases and Telegram notifications
+- 📦 **Auto releases** — tag-driven builds and GitHub Releases
 - 🔄 **In-app updates** — official Wails v3 updater checks GitHub Releases, verifies checksums and installs on demand
 
 ---
@@ -176,7 +176,6 @@ Releases are **tag-driven**. Pushing a `v*` tag triggers:
    injected via `-ldflags` from the tag (single source of truth)
 3. SHA-256 checksums
 4. GitHub Release with the EXE + checksums attached
-5. Rich Telegram announcement + EXE upload (optional)
 
 The GitHub Release is also the **update source**: the in-app updater reads
 `JunkFuck-*.exe` + `SHA256SUMS` from it.
@@ -190,27 +189,8 @@ Workflows:
 
 - `ci.yml` — tests on every push / PR
 - `build-exe.yml` — manual EXE build (Actions → Run workflow)
-- `release.yml` — tag-driven production release + Telegram
+- `release.yml` — tag-driven production release
 
-## 📣 Telegram release notifications (optional)
-
-The release workflow can post the new release to a Telegram channel directly
-via the Bot API (plain `curl`, no third-party action). Configure two
-repository secrets:
-
-| Secret | Value |
-| --- | --- |
-| `TELEGRAM_BOT_TOKEN` | Bot token from **@BotFather** (`/newbot`) |
-| `TELEGRAM_CHAT_ID` | Channel id, e.g. `@junkfuck_channel` |
-
-Setup: add the bot as **Administrator** of the channel with **Post Messages**
-permission, then add the secrets under
-**Settings → Secrets and variables → Actions**.
-
-The notification is best-effort: if Telegram is unreachable the GitHub
-Release still succeeds (the step is isolated with `continue-on-error`).
-
----
 
 ## 🧠 How junk is detected
 
