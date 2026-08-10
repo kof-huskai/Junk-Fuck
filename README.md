@@ -126,8 +126,9 @@ Messaging apps keep data in caches that users often want to preserve (messages, 
 
 Contributions are very welcome! Whether it's a bug report, a new junk pattern, or a full feature, here's how:
 
-1. **Issues** — use the [bug report](.github/ISSUE_TEMPLATE/bug_report.md) or [feature request](.github/ISSUE_TEMPLATE/feature_request.md) templates so maintainers can help you faster.
-2. **Pull requests** — please fill out the [pull request template](.github/PULL_REQUEST_TEMPLATE.md) and describe what you changed and why.
+1. **Read the guide** — [CONTRIBUTING.md](CONTRIBUTING.md) covers the workflow, style guide and (very important) the safety rules.
+2. **Issues** — use the [bug report](.github/ISSUE_TEMPLATE/bug_report.md) or [feature request](.github/ISSUE_TEMPLATE/feature_request.md) templates so maintainers can help you faster.
+3. **Pull requests** — please fill out the [pull request template](.github/PULL_REQUEST_TEMPLATE.md) and describe what you changed and why.
 
 ---
 

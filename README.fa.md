@@ -126,8 +126,9 @@ python junkfuck.py
 
 مشارکت شما بسیار خوش‌آمد است! چه گزارش باگ باشد، چه الگوی زباله‌ی جدید یا یک ویژگی کامل، به این صورت عمل کنید:
 
-1. **گزارش مشکل (Issue)** — از قالب‌های [گزارش باگ](.github/ISSUE_TEMPLATE/bug_report.md) یا [درخواست ویژگی](.github/ISSUE_TEMPLATE/feature_request.md) استفاده کنید تا نگه‌دارنده سریع‌تر کمک کند.
-2. **Pull Request** — لطفاً [قالب Pull Request](.github/PULL_REQUEST_TEMPLATE.md) را پر کنید و توضیح دهید چه چیزی و چرا تغییر کرده است.
+1. **راهنمای مشارکت را بخوانید** — [CONTRIBUTING.md](CONTRIBUTING.md) روند کار، راهنمای سبک و (خیلی مهم) قوانین ایمنی را پوشش می‌دهد.
+2. **گزارش مشکل (Issue)** — از قالب‌های [گزارش باگ](.github/ISSUE_TEMPLATE/bug_report.md) یا [درخواست ویژگی](.github/ISSUE_TEMPLATE/feature_request.md) استفاده کنید تا نگه‌دارنده سریع‌تر کمک کند.
+3. **Pull Request** — لطفاً [قالب Pull Request](.github/PULL_REQUEST_TEMPLATE.md) را پر کنید و توضیح دهید چه چیزی و چرا تغییر کرده است.
 
 ---
 

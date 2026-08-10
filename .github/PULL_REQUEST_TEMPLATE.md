@@ -39,8 +39,8 @@ Even "ran the script on my machine and it scanned correctly" is useful.
 ## Checklist
 
 - [ ] My code follows the existing style of the project
-- [ ] I have read the README and understand the safety rules
-- [ ] I have not accidentally removed any of the built-in protections
+- [ ] I have read [CONTRIBUTING.md](../CONTRIBUTING.md) and the README
+- [ ] I understand the safety rules (protected paths/apps) and did not weaken them
 
 ## Screenshots / logs (if applicable)
 
