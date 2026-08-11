@@ -12,8 +12,13 @@
   --color-panel: #12151d;
   --color-panel-2: #1a1f2c;
   --color-border: #242b3d;
-  --color-accent: #4f8cff;
-  --color-accent-soft: #27406e;
+  /* Steam-like primary accent. Derived states (hover/active/soft) live here
+     too so no component ever hardcodes accent hex values. */
+  --color-accent: #66c0f4;
+  --color-accent-hover: #8cd0f9;
+  --color-accent-active: #3f9edb;
+  --color-accent-soft: #16324b;
+  --color-on-accent: #0b0d12;
   --color-danger: #ff5d5d;
   --color-danger-soft: #4a2430;
   --color-success: #3ddc97;
@@ -50,7 +55,19 @@
   --text: #e7eaf3;
   --text-muted: var(--color-muted);
   --accent: var(--color-accent);
+  --accent-hover: var(--color-accent-hover);
+  --accent-active: var(--color-accent-active);
+  --accent-soft: var(--color-accent-soft);
   --success: var(--color-success);
+}
+
+/* Height chain: every shell level must occupy the full Wails window so the
+   sidebar background reaches the bottom edge. html -> body -> #root are
+   all 100%, and the app-shell is h-full inside #root. */
+html,
+body,
+#root {
+  height: 100%;
 }
 
 html {

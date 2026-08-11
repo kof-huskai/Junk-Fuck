@@ -45,9 +45,10 @@ const (
 
 	// Preferred logical window size. The final size is capped to fit the
 	// current monitor's logical WorkArea (DPI-aware; Wails reports logical
-	// coordinates), falling back to ~92% of the WorkArea on small screens.
-	preferredWinWidth   = 1100
-	preferredWinHeight  = 700
+	// coordinates), falling back to ~92% of the WorkArea on small screens
+	// (1366x768 laptops, high-DPI setups) without forcing the full height.
+	preferredWinWidth   = 1120
+	preferredWinHeight  = 760
 	workAreaFitFraction = 0.92
 )
 

@@ -24,6 +24,10 @@ ruff_out.txt
 plans/
 animation-plans/
 
+# Agent tooling
+.omo/
+.omc/
+
 # Editor
 .idea/
 .vscode/

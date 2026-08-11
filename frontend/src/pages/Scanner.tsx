@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { useI18n } from "../i18n";
 import { useStore } from "../lib/store";
-import { formatBytes } from "../lib/format";
+import { driveTypeKey, formatBytes } from "../lib/format";
 import { Button, Card, ProgressBar, Select } from "../components/ui";
 
 export function Scanner() {
@@ -70,7 +70,7 @@ export function Scanner() {
             )}
             {drives.map((d) => (
               <option key={d.root} value={d.root} disabled={!d.ready}>
-                {d.root} — {d.label || d.type}
+                {d.root} — {d.label || t(driveTypeKey(d.type))}
                 {d.ready ? ` · ${formatBytes(d.freeBytes)} free` : ` (${t("scan.notReady")})`}
               </option>
             ))}

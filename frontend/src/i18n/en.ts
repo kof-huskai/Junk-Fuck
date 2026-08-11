@@ -24,6 +24,13 @@ export const en: Record<string, string> = {
   "dash.target": "Scan target",
   "dash.noTarget": "No available scan target",
 
+  "drive.type.fixed": "Local Disk",
+  "drive.type.removable": "Removable Disk",
+  "drive.type.network": "Network Drive",
+  "drive.type.optical": "Optical Drive",
+  "drive.type.ram": "RAM Disk",
+  "drive.type.unknown": "Drive",
+
   "scan.title": "Scanner",
   "scan.target": "Scan target",
   "scan.targetsHint": "Select a drive to scan. Protected paths are always skipped.",

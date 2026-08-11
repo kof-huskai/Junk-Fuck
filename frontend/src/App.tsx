@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { LayoutDashboard, Search, FolderOpen, History as HistoryIcon, Settings as SettingsIcon, Info, Sparkles } from "lucide-react";
+import { LayoutDashboard, Search, FolderOpen, History as HistoryIcon, Settings as SettingsIcon, Info } from "lucide-react";
+import appIcon from "./assets/app-icon.png";
 import { I18nProvider, useI18n } from "./i18n";
 import { AppStoreProvider, useStore } from "./lib/store";
 import { Dashboard } from "./pages/Dashboard";
@@ -43,13 +44,18 @@ function Shell() {
   };
 
   return (
-    <div className="app-shell flex h-screen">
-      {/* Sidebar */}
-      <aside className="flex w-56 shrink-0 flex-col border-e border-border bg-panel">
+    <div className="app-shell flex h-full">
+      {/* Sidebar — stretches the full window height; no fixed px heights. */}
+      <aside className="flex h-full w-56 shrink-0 flex-col border-e border-border bg-panel">
         <div className="flex items-center gap-2.5 px-5 py-5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/15 text-accent">
-            <Sparkles size={18} />
-          </span>
+          <img
+            src={appIcon}
+            alt={t("app.name")}
+            width={18}
+            height={18}
+            draggable={false}
+            className="h-[18px] w-[18px] shrink-0 object-contain"
+          />
           <div>
             <p className="text-sm font-bold text-white">{t("app.name")}</p>
             <p className="text-[10px] text-muted">v4 · Go + Wails</p>
@@ -78,9 +84,11 @@ function Shell() {
         </nav>
       </aside>
 
-      {/* Main */}
-      <main className="min-w-0 flex-1 overflow-y-auto">
-        <div key={page} className="page-enter h-full">
+      {/* Main — the shell itself never scrolls; scroll ownership belongs to
+          the page container below (and to per-page scroll regions like the
+          Results list). */}
+      <main className="min-h-0 min-w-0 flex-1 overflow-hidden">
+        <div key={page} className="page-enter h-full min-h-0 overflow-y-auto">
           {page === "dashboard" && <Dashboard onNavigate={(p) => setPage(p as Page)} />}
           {page === "scanner" && <Scanner />}
           {page === "results" && <Results />}

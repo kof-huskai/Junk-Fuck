@@ -1,8 +1,9 @@
 import { useEffect } from "react";
-import { ShieldCheck, Sparkles } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { useI18n } from "../i18n";
 import { useStore } from "../lib/store";
 import { Badge, Card } from "../components/ui";
+import appIcon from "../assets/app-icon.png";
 
 export function About() {
   const { t } = useI18n();
@@ -15,12 +16,19 @@ export function About() {
   return (
     <div className="flex max-w-2xl flex-col gap-6 p-8">
       <div className="flex items-center gap-4">
-        <div className="flex h-14 w-14 items-center justify-center rounded-[10px] bg-accent/15 text-accent">
-          <Sparkles size={28} />
-        </div>
-        <div>
+        <img
+          src={appIcon}
+          alt={t("app.name")}
+          width={72}
+          height={72}
+          draggable={false}
+          className="h-[72px] w-[72px] shrink-0 object-contain"
+        />
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-white">{t("app.name")}</h1>
-          <p className="text-sm text-muted">{t("app.tagline")}</p>
+          <p className="mt-1 text-sm text-muted">
+            {t("about.version")} {appInfo?.version ?? "—"} · Go + Wails v3
+          </p>
         </div>
       </div>
 
@@ -29,11 +37,7 @@ export function About() {
       </Card>
 
       <Card>
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <p className="text-xs text-muted">{t("about.version")}</p>
-            <p className="mt-1 font-semibold text-white">{appInfo?.version ?? "—"}</p>
-          </div>
+        <div className="grid grid-cols-3 gap-4 text-sm">
           <div>
             <p className="text-xs text-muted">{t("about.os")}</p>
             <p className="mt-1 font-semibold text-white" dir="ltr">{systemInfo ? `${systemInfo.os} ${systemInfo.version}` : "—"}</p>

@@ -12,7 +12,8 @@ export function Button({
   ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant; size?: ButtonSize }) {
   const variants: Record<ButtonVariant, string> = {
-    primary: "bg-accent text-white hover:bg-[#6b9dff] active:bg-[#3f76e0] shadow-sm",
+    // Light #66c0f4 accent with dark text keeps AA contrast on the button.
+    primary: "bg-accent text-on-accent hover:bg-accent-hover active:bg-accent-active shadow-sm",
     secondary: "bg-panel-2 text-slate-200 border border-border hover:border-accent/60 hover:text-white",
     danger: "bg-danger/90 text-white hover:bg-danger",
     ghost: "text-muted hover:text-white hover:bg-panel-2",
@@ -106,7 +107,7 @@ export function Checkbox({
     >
       {checked && (
         <svg className="animate-check" width="11" height="11" viewBox="0 0 12 12" fill="none">
-          <path d="M2 6.2 4.8 9 10 3.4" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M2 6.2 4.8 9 10 3.4" stroke="var(--color-on-accent)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       )}
     </button>
@@ -120,7 +121,7 @@ export function ProgressBar({ value, max = 100 }: { value: number; max?: number 
   return (
     <div className="h-2 w-full overflow-hidden rounded-full bg-panel-2">
       <div
-        className={`relative h-full overflow-hidden rounded-full bg-gradient-to-r from-accent to-[#7fb0ff] transition-[width] duration-300 ease-out ${running ? "progress-shimmer" : ""}`}
+        className={`relative h-full overflow-hidden rounded-full bg-gradient-to-r from-accent to-accent-hover transition-[width] duration-300 ease-out ${running ? "progress-shimmer" : ""}`}
         style={{ width: `${Math.max(pct, 2)}%` }}
       />
     </div>

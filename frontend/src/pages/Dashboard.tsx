@@ -1,7 +1,7 @@
 import { ShieldCheck } from "lucide-react";
 import { useI18n } from "../i18n";
 import { useStore } from "../lib/store";
-import { formatBytes } from "../lib/format";
+import { driveTypeKey, formatBytes } from "../lib/format";
 import { Button, Card } from "../components/ui";
 
 export function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
@@ -15,7 +15,7 @@ export function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }
   const selected = drives.find((d) => d.root.toLowerCase() === selectedRoot.toLowerCase());
   const hasTarget = drivesLoaded ? drives.some((d) => d.ready) : true;
   const targetLabel = selected
-    ? `${selected.root} — ${selected.label || selected.type}`
+    ? `${selected.root} — ${selected.label || t(driveTypeKey(selected.type))}`
     : selectedRoot || t("dash.noTarget");
 
   const run = async () => {

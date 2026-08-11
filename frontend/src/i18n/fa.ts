@@ -24,6 +24,13 @@ export const fa: Record<string, string> = {
   "dash.target": "مسیر اسکن",
   "dash.noTarget": "مسیر اسکن در دسترس نیست",
 
+  "drive.type.fixed": "دیسک محلی",
+  "drive.type.removable": "دیسک قابل حمل",
+  "drive.type.network": "درایو شبکه",
+  "drive.type.optical": "درایو نوری",
+  "drive.type.ram": "دیسک RAM",
+  "drive.type.unknown": "درایو",
+
   "scan.title": "اسکنر",
   "scan.target": "مسیر اسکن",
   "scan.targetsHint": "درایو مورد نظر را برای اسکن انتخاب کنید. مسیرهای محافظت‌شده همیشه رد می‌شوند.",

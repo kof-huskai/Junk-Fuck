@@ -85,7 +85,7 @@ export function Results() {
       </div>
 
       {lastReport && (
-        <div className={`slide-in flex flex-wrap items-center gap-x-5 gap-y-1 rounded-xl border px-4 py-3 text-sm ${lastReport.dryRun ? "border-accent/40 bg-accent-soft/30" : "border-success/30 bg-[#0f2b23]"}`}>
+        <div className={`slide-in flex flex-wrap items-center gap-x-5 gap-y-1 rounded-[10px] border px-4 py-3 text-sm ${lastReport.dryRun ? "border-accent/40 bg-accent-soft/30" : "border-success/30 bg-[#0f2b23]"}`}>
           <span className="font-semibold text-white">{t(lastReport.dryRun ? "hist.dryRun" : "hist.title")}</span>
           <span className="inline-flex items-center gap-1 text-success">
             <CheckCircle2 size={14} /> {t("hist.deleted")}: {lastReport.deletedCount}
@@ -93,6 +93,33 @@ export function Results() {
           <span className="text-warn">{t("hist.skipped")}: {lastReport.skippedCount}</span>
           <span className="text-danger">{t("hist.failed")}: {lastReport.failedCount}</span>
           <span className="text-accent">{t("hist.freed")}: {formatBytes(lastReport.bytesFreed)}</span>
+        </div>
+      )}
+
+      {/* Category summary — an equal-track grid (minmax(0,1fr)) so every box
+          has identical geometry regardless of label length. Clicking a box
+          filters the list (same state as the toolbar select). */}
+      {candidates.length > 0 && (
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+          {categories.map((cat) => {
+            const items = candidates.filter((c) => c.category === cat);
+            const size = items.reduce((s, c) => s + c.size, 0);
+            const active = category === cat;
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setCategory(active ? "all" : cat)}
+                title={t(CATEGORY_KEYS[cat])}
+                className={`flex flex-col items-start gap-0.5 rounded-[8px] border px-3 py-2 text-start transition-colors ${
+                  active ? "border-accent/70 bg-accent-soft/30" : "border-border bg-panel-2/60 hover:border-accent/40"
+                }`}
+              >
+                <span className="w-full truncate text-xs font-medium text-slate-200">{t(CATEGORY_KEYS[cat])}</span>
+                <span className="text-[11px] text-muted">{items.length} · {formatBytes(size)}</span>
+              </button>
+            );
+          })}
         </div>
       )}
 

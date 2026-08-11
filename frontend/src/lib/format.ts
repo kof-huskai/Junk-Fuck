@@ -10,6 +10,12 @@ export function formatBytes(bytes: number): string {
   return `${v.toFixed(2)} ${units[u]}`;
 }
 
+// Maps backend drive type ids to i18n keys so the UI shows friendly labels
+// ("Local Disk", "Removable Disk", …) instead of internal enum words.
+export function driveTypeKey(type: string): string {
+  return `drive.type.${type}`;
+}
+
 // Maps backend category ids to i18n keys.
 export const CATEGORY_KEYS: Record<string, string> = {
   "temporary-files": "cat.temporary-files",
