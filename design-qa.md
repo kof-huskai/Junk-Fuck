@@ -367,7 +367,40 @@ width measurement (browser tooling flaky; logic unit-tested).
   action, not the state. Resolution — the tooltip now shows the state label
   ("Update available — v4.2.0") when collapsed.
 
+## Release notes / Telegram QA (v4.1.0)
+
+- GitHub release body: user-oriented summary written by the workflow
+  (`Prepare release notes` → `body_path`), verified present on the live
+  release ("# JunkFuck v4.1.0 … What's new …").
+- Telegram message: one polished HTML announcement (escaped tag, sectioned
+  highlights, arch download links, GitHub link, hashtags) plus the same EXE
+  artifacts with arch captions and the checksum file. Verified as a workflow
+  step that completed successfully; actual channel rendering is not visible
+  from this environment (secrets-based, best-effort by design).
+
+## Final release verification (v4.1.0)
+
+- Commit `4c90b84` pushed to `kof-huskai/Junk-Fuck` main; annotated tag
+  `v4.1.0` dereferences to exactly that commit (verified via `git rev-list`).
+- GitHub Actions **Release** workflow (run `31507464900`, tag push): all jobs
+  succeeded — Tests → Production build → GitHub Release + Telegram.
+- GitHub Release `v4.1.0` published (Latest, not draft/prerelease) with
+  assets `JunkFuck-windows-amd64.exe`, `JunkFuck-windows-arm64.exe` and
+  `SHA256SUMS`, and the user-oriented release body (What's new / Improved /
+  Safety / Windows).
+- Checksums verified byte-for-byte against the downloaded assets
+  (amd64 `479c54ee…`, arm64 `6aa77bf1…` match `SHA256SUMS`).
+- Updater visibility: the public GitHub Releases API returns v4.1.0 with the
+  amd64/arm64 assets + `SHA256SUMS` — the in-app Wails updater (github
+  provider, `ChecksumAsset: SHA256SUMS`) sees the new version.
+- Telegram: the release job completed successfully (the step is
+  `continue-on-error`; actual channel delivery depends on the configured
+  `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` secrets, which are never exposed).
+- Release list is clean: v4.1.0 (Latest) plus legitimate historical releases
+  v4.0.1 / v4.0.0 / v3.0.0 — no leftover test release from this cycle.
+
 ## Result
 
-blocked — implementation and automated verification passed, but the candidate
-build is awaiting the user's manual validation before it may be released.
+passed — implementation, automated verification, user-approved release
+candidate, and the published v4.1.0 release were all verified (see final
+release verification above).
