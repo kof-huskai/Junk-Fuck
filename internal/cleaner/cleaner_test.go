@@ -3,12 +3,14 @@ package cleaner
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/kof-huskai/Junk-Fuck/internal/filesystem"
 	"github.com/kof-huskai/Junk-Fuck/internal/model"
 	"github.com/kof-huskai/Junk-Fuck/internal/protection"
 	"github.com/kof-huskai/Junk-Fuck/internal/report"
+	"golang.org/x/sys/windows"
 )
 
 func makeSession(t *testing.T, cands ...model.Candidate) *model.ScanSession {
@@ -220,6 +222,68 @@ func TestDuplicateSelectionIsIdempotent(t *testing.T) {
 	rep := cleaner.Clean(false, makeSession(t, fileCandidate(f, 1)), []string{f, f})
 	if rep.DeletedCount != 1 {
 		t.Fatalf("duplicates should be handled once, got %+v", rep)
+	}
+}
+
+// setHidden applies the real Windows hidden attribute (FILE_ATTRIBUTE_HIDDEN);
+// a no-op elsewhere. The directory flag is preserved on directories because
+// SetFileAttributes replaces the attribute set.
+func setHidden(t *testing.T, path string) {
+	t.Helper()
+	if runtime.GOOS != "windows" {
+		return
+	}
+	ptr, err := windows.UTF16PtrFromString(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	attrs := windows.FILE_ATTRIBUTE_HIDDEN
+	if info, err := os.Stat(path); err == nil && info.IsDir() {
+		attrs |= windows.FILE_ATTRIBUTE_DIRECTORY
+	}
+	if err := windows.SetFileAttributes(ptr, uint32(attrs)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Hidden state never relaxes deletion safety: dry runs stay non-destructive
+// and arbitrary (even hidden) paths outside the scan session are refused.
+func TestDryRunNeverDeletesHiddenCandidate(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "hidden.tmp")
+	if err := os.WriteFile(f, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	setHidden(t, f)
+
+	cleaner := New(protection.New(protection.Rules{Env: protection.Env{}}))
+	rep := cleaner.Clean(true, makeSession(t, fileCandidate(f, 7)), []string{f})
+	if !rep.DryRun {
+		t.Error("report should be marked as dry run")
+	}
+	if rep.DeletedCount != 1 || rep.BytesFreed != 7 {
+		t.Errorf("dry run should report would-delete stats: %+v", rep)
+	}
+	if _, err := os.Stat(f); err != nil {
+		t.Error("dry run must never delete hidden files")
+	}
+}
+
+func TestRejectsHiddenPathOutsideSession(t *testing.T) {
+	dir := t.TempDir()
+	rogue := filepath.Join(dir, "rogue.tmp")
+	if err := os.WriteFile(rogue, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	setHidden(t, rogue)
+
+	cleaner := New(protection.New(protection.Rules{Env: protection.Env{}}))
+	rep := cleaner.Clean(false, makeSession(t), []string{rogue})
+	if rep.FailedCount != 1 {
+		t.Fatalf("expected 1 failed item, got %+v", rep)
+	}
+	if _, err := os.Stat(rogue); err != nil {
+		t.Error("hidden arbitrary path must never be deleted")
 	}
 }
 

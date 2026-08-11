@@ -32,6 +32,8 @@ interface StoreValue {
   appInfo: Record<string, string> | null;
   protectedCount: number;
   updateState: services.UpdateState | null;
+  /** True while an update check is in flight (startup or manual). */
+  updateChecking: boolean;
   settings: Settings;
   setSettings: (s: Partial<Settings>) => void;
   // Drive state — single source of truth shared by Dashboard and Scanner.
@@ -76,6 +78,12 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
   const [appInfo, setAppInfo] = useState<Record<string, string> | null>(null);
   const [protectedCount, setProtectedCount] = useState(0);
   const [updateState, setUpdateState] = useState<services.UpdateState | null>(null);
+  // Starts true because a startup check always runs: the Sidebar shows
+  // "Checking…" from the very first frame instead of flashing "not checked".
+  const [updateChecking, setUpdateChecking] = useState(true);
+  // Exactly one background update check per app launch. A ref guard means
+  // React StrictMode's double effect invocation cannot fire two checks.
+  const startupCheckDone = useRef(false);
   const [settings, setSettingsState] = useState<Settings>(() => ({
     dryRun: localStorage.getItem("jf.dryRun") !== "0",
   }));
@@ -186,8 +194,19 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   const checkForUpdates = useCallback(async () => {
-    setUpdateState(await updateSvc.CheckForUpdates());
-  }, []);
+    setUpdateChecking(true);
+    try {
+      setUpdateState(await updateSvc.CheckForUpdates());
+    } catch {
+      // A failed network/binding check must never block the app: pull
+      // whatever the backend recorded (e.g. "error") so the Sidebar can
+      // show a quiet "Update check failed". The user can retry from
+      // Settings at any time.
+      await refreshUpdate();
+    } finally {
+      setUpdateChecking(false);
+    }
+  }, [refreshUpdate]);
 
   const installUpdate = useCallback(async () => {
     setUpdateState(await updateSvc.InstallUpdate());
@@ -206,6 +225,7 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
       appInfo,
       protectedCount,
       updateState,
+      updateChecking,
       settings,
       setSettings,
       drives,
@@ -225,7 +245,7 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
       installUpdate,
       refreshUpdate,
     }),
-    [scanId, scanning, cancelled, progress, candidates, scanErrors, lastReport, systemInfo, appInfo, protectedCount, updateState, settings, drives, drivesLoaded, drivesError, driveSwitchedFrom, selectedRoot, setSelectedRoot, refreshDrives, completedScan, startScan, cancelScan, refreshCandidates, refreshMeta, cleanup, checkForUpdates, installUpdate, refreshUpdate],
+    [scanId, scanning, cancelled, progress, candidates, scanErrors, lastReport, systemInfo, appInfo, protectedCount, updateState, updateChecking, settings, drives, drivesLoaded, drivesError, driveSwitchedFrom, selectedRoot, setSelectedRoot, refreshDrives, completedScan, startScan, cancelScan, refreshCandidates, refreshMeta, cleanup, checkForUpdates, installUpdate, refreshUpdate],
   );
 
   // Live event wiring (runs once per provider mount; StrictMode-safe).
@@ -271,10 +291,16 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Keep the updater state fresh after install/check operations.
+  // Startup: read the initial updater snapshot and kick off exactly ONE
+  // background update check. The check is async and non-blocking — the UI
+  // is interactive immediately; it only feeds the shared update state that
+  // Sidebar and Settings both subscribe to. No modal, no auto-install.
   useEffect(() => {
     void refreshUpdate();
-  }, [refreshUpdate]);
+    if (startupCheckDone.current) return;
+    startupCheckDone.current = true;
+    void checkForUpdates();
+  }, [refreshUpdate, checkForUpdates]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

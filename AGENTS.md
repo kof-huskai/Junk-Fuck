@@ -71,6 +71,11 @@ Project-specific invariants (paths are real):
 - Dry-run must remain safe: a dry run never touches disk.
 - Tests must never delete real user files — test fixtures live under `t.TempDir()`.
 - Windows system protections (protected roots) must not be bypassed.
+- Hidden state is metadata, never junk: the scanner walks hidden files and
+  folders (real Windows attributes on Windows, dot-prefixed names elsewhere),
+  and hidden content passes through exactly the same classifier, protection
+  and candidate-validation rules as visible content. Hidden never implies
+  deletable.
 - Privilege elevation never happens silently; the app reports elevation status
   (`internal/platform/info_windows.go`) and the UI surfaces it.
 
@@ -92,6 +97,8 @@ filesystem / Win32 APIs (golang.org/x/sys/windows, os)
 Modules:
 
 - `internal/scanner` — filesystem walk, progress, candidate collection.
+  Hidden files and folders are discovered too (Windows hidden attributes and
+  dot-prefixed names are both walked); hidden state is metadata, never junk.
 - `internal/classifier` — rules that decide whether a path is junk and its
   category.
 - `internal/protection` — protected roots and skip rules.
@@ -121,14 +128,29 @@ The pure Go core stays independent of Wails (no `pkg/application` imports in
 - Full-height sidebar: `html, body, #root { height: 100% }` chain; the app
   shell never scrolls (`overflow: hidden`); scrolling belongs to the page
   container and per-page scroll regions (e.g. the Results list).
-- Geist typography (bundled via `@fontsource`); Persian uses bundled Vazirmatn
-  via `html[lang="fa"]`.
+- JetBrains Mono is the single application UI font (bundled offline via
+  `@fontsource/jetbrains-mono`, latin subsets for weights 400/500/600/700);
+  Persian switches to bundled Vazirmatn via `html[lang="fa"]`.
 - Dark theme with centralized tokens in `frontend/src/index.css`; primary
   accent `#66c0f4` with derived tokens — never hardcode accent hexes in
   components.
 - Compact desktop-utility visual language: restrained radii (cards 10px,
   controls 6px, small 4px), minimal pills/badges.
 - Results category boxes share one equal-track grid geometry.
+- Windows-11-inspired Sidebar: full-height, modest right-corner curve, a
+  low-opacity soft shadow for separation, and a compact updater-status row at
+  the bottom that consumes the existing update service state (download/install
+  UI lives only in Settings → Updates).
+- Collapsible Sidebar: expanded `w-56` / collapsed `w-14` icon rail, hover
+  temporary expansion (only while user-pinned collapsed), and a persisted
+  pin preference (`jf.sidebarCollapsed`). Pure state model in
+  `frontend/src/lib/sidebar.ts` (unit-tested); hover handlers live on the
+  aside so the left-anchored width transition never flickers. Layout-driven:
+  main content shrinks as the sidebar grows — never an overlay.
+- Startup update check: exactly one background check per launch (store mount
+  effect, ref-guarded against StrictMode double-invocation) via the existing
+  `UpdateService.CheckForUpdates`; no modal, no auto-install; Sidebar and
+  Settings share the same `store.updateState`/`updateChecking`.
 - Localization is en/fa with RTL switching; language selection lives in
   Settings (no floating switcher).
 - UI layout must be verified in the running Wails application, not only in a

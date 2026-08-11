@@ -4,12 +4,14 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/kof-huskai/Junk-Fuck/internal/classifier"
 	"github.com/kof-huskai/Junk-Fuck/internal/model"
 	"github.com/kof-huskai/Junk-Fuck/internal/protection"
+	"golang.org/x/sys/windows"
 )
 
 func newTestScanner(pr *protection.Protection) *Scanner {
@@ -182,6 +184,154 @@ func TestScanSkipsReparsePointDirectories(t *testing.T) {
 	for _, c := range res.Candidates {
 		if strings.Contains(strings.ToLower(c.Path), "linkdir") {
 			t.Errorf("candidate %s was found through a symlink and must be skipped", c.Path)
+		}
+	}
+}
+
+// setHidden applies the real Windows hidden attribute (FILE_ATTRIBUTE_HIDDEN)
+// to a file or directory. It is a no-op on other platforms, where hidden
+// state is exercised through dot-prefixed names instead. The directory flag
+// is preserved because SetFileAttributes replaces the attribute set.
+func setHidden(t *testing.T, path string) {
+	t.Helper()
+	if runtime.GOOS != "windows" {
+		return
+	}
+	ptr, err := windows.UTF16PtrFromString(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	attrs := windows.FILE_ATTRIBUTE_HIDDEN
+	if info, err := os.Stat(path); err == nil && info.IsDir() {
+		attrs |= windows.FILE_ATTRIBUTE_DIRECTORY
+	}
+	if err := windows.SetFileAttributes(ptr, uint32(attrs)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Hidden-state guarantees: hidden is metadata, never junk. The walk must
+// discover hidden content (files AND folders), the classifier must stay
+// attribute-agnostic (a hidden normal file is not junk), and protection must
+// still prune protected subtrees even when they live inside hidden folders.
+func TestScanDiscoversHiddenAttributeJunk(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "hidden.tmp")
+	writeFile(t, f, 30)
+	setHidden(t, f)
+
+	pr := protection.New(protection.Rules{Env: protection.Env{}})
+	res := newTestScanner(pr).Scan(context.Background(), "h1", []string{dir}, nil)
+
+	byName := map[string]model.Candidate{}
+	for _, c := range res.Candidates {
+		byName[c.Name] = c
+	}
+	if _, ok := byName["hidden.tmp"]; !ok {
+		t.Error("hidden-attribute .tmp file should be discovered as a candidate")
+	}
+	if _, err := os.Stat(f); err != nil {
+		t.Error("the scan must not modify hidden files")
+	}
+	if len(res.Errors) != 0 {
+		t.Errorf("hidden files must not produce errors: %v", res.Errors)
+	}
+}
+
+func TestScanDiscoversJunkInsideHiddenDirectory(t *testing.T) {
+	dir := t.TempDir()
+	hidden := filepath.Join(dir, "Private") // not a junk name
+	if err := os.MkdirAll(hidden, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	setHidden(t, hidden)
+	writeFile(t, filepath.Join(hidden, "app.tmp"), 40)
+
+	pr := protection.New(protection.Rules{Env: protection.Env{}})
+	res := newTestScanner(pr).Scan(context.Background(), "h2", []string{dir}, nil)
+
+	byName := map[string]model.Candidate{}
+	for _, c := range res.Candidates {
+		byName[c.Name] = c
+	}
+	if _, ok := byName["app.tmp"]; !ok {
+		t.Error("junk inside a hidden directory should be discovered")
+	}
+	if _, ok := byName["Private"]; ok {
+		t.Error("a hidden directory must not be junk simply because it is hidden")
+	}
+}
+
+func TestScanHiddenJunkDirectorySized(t *testing.T) {
+	dir := t.TempDir()
+	cache := filepath.Join(dir, ".cache") // junk folder by name rule, dot-prefixed
+	if err := os.MkdirAll(cache, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	setHidden(t, cache)
+	writeFile(t, filepath.Join(cache, "inner.tmp"), 25)
+
+	pr := protection.New(protection.Rules{Env: protection.Env{}})
+	res := newTestScanner(pr).Scan(context.Background(), "h3", []string{dir}, nil)
+
+	var dirCand *model.Candidate
+	for i := range res.Candidates {
+		if res.Candidates[i].Name == ".cache" {
+			dirCand = &res.Candidates[i]
+			break
+		}
+	}
+	if dirCand == nil {
+		t.Fatal("hidden .cache junk folder should be a candidate")
+	}
+	if dirCand.Size != 25 {
+		t.Errorf(".cache size = %d, want 25 (contents of a hidden junk dir must be counted)", dirCand.Size)
+	}
+}
+
+func TestScanHiddenNormalFileIsNotJunk(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".keep.me"), 10)
+	hiddenNormal := filepath.Join(dir, "notes.txt")
+	writeFile(t, hiddenNormal, 20)
+	setHidden(t, hiddenNormal)
+
+	pr := protection.New(protection.Rules{Env: protection.Env{}})
+	res := newTestScanner(pr).Scan(context.Background(), "h4", []string{dir}, nil)
+
+	if len(res.Candidates) != 0 {
+		t.Errorf("hidden state must never turn normal files into junk, got %v", res.Candidates)
+	}
+}
+
+func TestScanHiddenProtectedContentStaysProtected(t *testing.T) {
+	root := t.TempDir()
+	hidden := filepath.Join(root, ".private")
+	protected := filepath.Join(hidden, "system")
+	if err := os.MkdirAll(protected, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	setHidden(t, hidden)
+	writeFile(t, filepath.Join(hidden, "junk.tmp"), 10)
+	writeFile(t, filepath.Join(protected, "junk.tmp"), 10)
+
+	pr := protection.New(protection.Rules{Env: protection.Env{}, Paths: []string{protected}})
+	s := newTestScanner(pr)
+	if !pr.IsProtected(protected) {
+		t.Fatal("test setup: protected dir should be protected")
+	}
+	res := s.Scan(context.Background(), "h5", []string{root}, nil)
+
+	byName := map[string]model.Candidate{}
+	for _, c := range res.Candidates {
+		byName[c.Name] = c
+	}
+	if _, ok := byName["junk.tmp"]; !ok {
+		t.Error("junk file outside the protected dir (inside the hidden dir) should be discovered")
+	}
+	for _, c := range res.Candidates {
+		if strings.Contains(strings.ToLower(c.Path), strings.ToLower(protected)) {
+			t.Errorf("protected content inside a hidden dir must be pruned, got %v", c.Path)
 		}
 	}
 }

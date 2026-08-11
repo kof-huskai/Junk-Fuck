@@ -1,16 +1,15 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
-// Geist — the primary Latin UI font, bundled locally (offline-safe).
-import "@fontsource/geist-sans/400.css";
-import "@fontsource/geist-sans/500.css";
-import "@fontsource/geist-sans/600.css";
-import "@fontsource/geist-sans/700.css";
-// Geist Mono — sparingly, for technical values (paths, versions, hashes).
-// Latin subset only: the mono face is used for paths/versions, so bundling
-// cyrillic/vietnamese/symbol subsets would just bloat the EXE.
-import "@fontsource/geist-mono/latin-400.css";
-import "@fontsource/geist-mono/latin-500.css";
+// JetBrains Mono — the single application UI font, bundled locally
+// (offline-safe). Latin subsets only: the UI is English (Persian falls back
+// to Vazirmatn below), so bundling every script subset would just bloat the
+// EXE. Weights actually used: 400 (body), 500/600 (buttons, emphasis), 700
+// (headings, bold values).
+import "@fontsource/jetbrains-mono/latin-400.css";
+import "@fontsource/jetbrains-mono/latin-500.css";
+import "@fontsource/jetbrains-mono/latin-600.css";
+import "@fontsource/jetbrains-mono/latin-700.css";
 // Vazirmatn — the Persian UI font, bundled locally (offline-safe).
 import "@fontsource/vazirmatn/400.css";
 import "@fontsource/vazirmatn/500.css";

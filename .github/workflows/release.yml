@@ -119,6 +119,39 @@ jobs:
           name: release-artifacts
           path: dist
 
+      # One user-oriented release summary is prepared here and used by both
+      # GitHub (body_path below) and the Telegram announcement, so the two
+      # surfaces always tell the same story instead of drifting apart.
+      # The Telegram step further below mirrors a condensed version of these
+      # same highlights — keep the two lists in sync when features change.
+      - name: Prepare release notes
+        shell: bash
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          cat > release-body.md <<'EOF'
+          # JunkFuck v${VER}
+
+          A polished native Windows build of the deep junk scanner & cleaner.
+
+          ## What's new
+          - Hidden files and folders are now handled correctly during scans
+          - JetBrains Mono typography across the application
+          - Refined Windows-style curved Sidebar with subtle separation
+          - Live update status in the Sidebar
+
+          ## Improved
+          - Results layout, scrolling and equal category cards
+          - Scanner and update workflow polish
+
+          ## Safety
+          - Hidden content still passes through backend protection and candidate validation
+          - Cleanup remains backend-enforced: only scanned candidates can ever be deleted
+
+          ## Windows
+          - x64 and ARM64 portable executables
+          EOF
+          sed -i "s/\${VER}/${VER}/g" release-body.md
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -126,7 +159,7 @@ jobs:
             dist/JunkFuck-windows-amd64.exe
             dist/JunkFuck-windows-arm64.exe
             dist/SHA256SUMS
-          generate_release_notes: true
+          body_path: release-body.md
           draft: false
           prerelease: false
 
@@ -142,33 +175,81 @@ jobs:
           CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TAG: ${{ github.ref_name }}
           REPO: ${{ github.repository }}
-          RELEASE_URL: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}
         run: |
           if [ -z "${BOT_TOKEN}" ] || [ -z "${CHAT_ID}" ]; then
             echo "::warning::TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID secrets not set - skipping Telegram notification."
             exit 0
           fi
 
-          # Double-quoted string + $NL so ${TAG}/${REPO} actually expand
-          # (the old $'...' ANSI-C quoting only converted \n to newlines and
-          # left ${VARS} literal — Telegram received "${TAG}" verbatim).
-          NL=$'\n'
-          msg="🧹 <b>JunkFuck ${TAG} released!</b>${NL}${NL}A native Windows desktop build is out - no Python required:${NL}${NL}🖥️ <b>Windows x64</b> — <a href=\"https://github.com/${REPO}/releases/download/${TAG}/JunkFuck-windows-amd64.exe\">Download EXE</a>${NL}🖥️ <b>Windows ARM64</b> — <a href=\"https://github.com/${REPO}/releases/download/${TAG}/JunkFuck-windows-arm64.exe\">Download EXE</a>${NL}${NL}📦 <a href=\"${RELEASE_URL}\">View release on GitHub</a>${NL}${NL}⚠️ SmartScreen may warn about the unsigned EXE — click <b>More info</b> → <b>Run anyway</b>. It's the same open-source code you can read in the repo."
+          VER="${TAG#v}"
+          # Defensive HTML escaping: tag names are controlled by us, but a
+          # bad tag must never be able to break Telegram markup or inject
+          # entities into the payload.
+          ESC_TAG=$(printf '%s' "${TAG}" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
+
+          RELEASE_URL="https://github.com/${REPO}/releases/tag/${TAG}"
+          AMD64_URL="https://github.com/${REPO}/releases/download/${TAG}/JunkFuck-windows-amd64.exe"
+          ARM64_URL="https://github.com/${REPO}/releases/download/${TAG}/JunkFuck-windows-arm64.exe"
+
+          cat > /tmp/jf-release-msg.html <<EOF
+          🧹 <b>JunkFuck ${ESC_TAG}</b> — Windows
+
+          A new native Windows build is ready.
+
+          ✨ <b>What's new</b>
+          • Hidden files and folders are now handled correctly during scans
+          • JetBrains Mono typography across the application
+          • Refined Windows-style curved Sidebar with subtle separation
+          • Live update status in the Sidebar
+
+          🛠 <b>Improved</b>
+          • Results layout and scrolling
+          • Scanner and update workflow polish
+
+          🛡 <b>Safety</b>
+          Hidden content still passes through backend protection and candidate validation. Cleanup stays backend-enforced — only scanned candidates can ever be deleted.
+
+          🖥 <b>Windows</b>
+          • x64 — <a href="${AMD64_URL}">Download EXE</a>
+          • ARM64 — <a href="${ARM64_URL}">Download EXE</a>
+
+          📦 <a href="${RELEASE_URL}">View release on GitHub</a>
+
+          #JunkFuck #Release
+          EOF
 
           curl --fail --silent --show-error \
-            --form-string "chat_id=${CHAT_ID}" \
-            --form-string "parse_mode=HTML" \
-            --form-string "text=${msg}" \
+            --data-urlencode "chat_id=${CHAT_ID}" \
+            --data-urlencode "parse_mode=HTML" \
+            --data-urlencode "text@/tmp/jf-release-msg.html" \
             "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
-            || echo "::warning::Failed to send announcement to Telegram"
+            || echo "::warning::Failed to send the JunkFuck release announcement to Telegram"
 
+          # The SAME built artifacts from the GitHub Release are delivered
+          # here — no separate Telegram rebuild, so binaries can never differ
+          # between the two distribution surfaces.
           for file in dist/*.exe; do
             [ -e "${file}" ] || continue
+            name="$(basename "${file}")"
+            case "${name}" in
+              *amd64*) arch="Windows x64" ;;
+              *arm64*) arch="Windows ARM64" ;;
+              *) arch="Windows" ;;
+            esac
             curl --fail --silent --show-error \
               --form-string "chat_id=${CHAT_ID}" \
               --form-string "parse_mode=HTML" \
               -F "document=@${file}" \
-              --form-string "caption=🧹 <b>JunkFuck ${TAG}</b> - $(basename "$file")" \
+              --form-string "caption=🧹 <b>JunkFuck ${ESC_TAG}</b> — ${arch}" \
               "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument" \
               || echo "::warning::Failed to send ${file} to Telegram"
           done
+
+          if [ -f dist/SHA256SUMS ]; then
+            curl --fail --silent --show-error \
+              --form-string "chat_id=${CHAT_ID}" \
+              -F "document=@dist/SHA256SUMS" \
+              --form-string "caption=SHA256 checksums — JunkFuck ${ESC_TAG}" \
+              "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument" \
+              || echo "::warning::Failed to send SHA256SUMS to Telegram"
+          fi

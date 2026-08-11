@@ -25,10 +25,13 @@
   --color-warn: #ffc24b;
   --color-muted: #8a93a8;
 
-  /* Fonts — Geist (bundled, offline) with native Windows fallbacks. */
-  --font-sans: "Geist", "Segoe UI Variable", "Segoe UI", system-ui,
-    -apple-system, BlinkMacSystemFont, "Segoe UI Historic", sans-serif;
-  --font-mono: "Geist Mono", "Cascadia Mono", "Consolas", ui-monospace,
+  /* Fonts — JetBrains Mono is the single application UI font (bundled,
+     offline). Segoe UI/system fonts cover glyphs JetBrains Mono lacks
+     (emoji, full-width, rare scripts). Persian switches to Vazirmatn via
+     html[lang="fa"] below. */
+  --font-sans: "JetBrains Mono", "Segoe UI Variable", "Segoe UI", system-ui,
+    -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Mono", "Consolas", ui-monospace,
     monospace;
 
   /* Radius hierarchy — quiet, native-desktop feel. Avoid pills. */
@@ -79,9 +82,23 @@ body {
   background-color: var(--app-bg);
   color: var(--text);
   font-family: var(--font-sans);
+  /* JetBrains Mono has a taller line box than Geist — a slightly tighter
+     line-height keeps the desktop density without shrinking anything. */
+  font-size: 13.5px;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
   -webkit-font-smoothing: antialiased;
   user-select: none;
   overflow: hidden;
+}
+
+/* Controls inherit the body's slight negative tracking; reset it to 0 so
+   button/input/select text keeps its natural mono spacing (labels that need
+   extra room already use Tailwind's tracking-wide). */
+button,
+input,
+select {
+  letter-spacing: 0;
 }
 
 /* Geist has no Persian glyph coverage — the i18n layer sets
