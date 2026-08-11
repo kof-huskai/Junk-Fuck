@@ -1,0 +1,78 @@
+name: Telegram Fix (temporary)
+
+on:
+  workflow_dispatch:
+    inputs:
+      message_ids:
+        description: "Comma-separated Telegram message IDs to delete (announcement + uploaded EXEs)"
+        required: true
+        default: "263,264,265"
+      tag:
+        description: "Release tag used for the re-sent links and EXE download"
+        required: true
+        default: "v4.0.0"
+
+permissions:
+  contents: read
+
+jobs:
+  fix:
+    name: Delete broken messages + re-send
+    runs-on: ubuntu-latest
+    env:
+      BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Delete broken messages
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${BOT_TOKEN}" ] || [ -z "${CHAT_ID}" ]; then
+            echo "::error::TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID secrets not set"
+            exit 1
+          fi
+          for id in $(echo "${{ inputs.message_ids }}" | tr ',' ' '); do
+            resp=$(curl -sS --fail \
+              --form-string "chat_id=${CHAT_ID}" \
+              --form-string "message_id=${id}" \
+              "https://api.telegram.org/bot${BOT_TOKEN}/deleteMessage" || true)
+            echo "deleteMessage ${id} -> ${resp}"
+          done
+
+      - name: Download release EXEs
+        shell: bash
+        run: |
+          gh release download "${{ inputs.tag }}" --repo kof-huskai/Junk-Fuck \
+            --pattern 'JunkFuck-windows-*.exe' --dir dist
+          ls -la dist/
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Send corrected announcement + EXEs
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ inputs.tag }}"
+          REPO="kof-huskai/Junk-Fuck"
+          RELEASE_URL="https://github.com/${REPO}/releases/tag/${TAG}"
+          # Double-quoted string + $NL so ${TAG}/${REPO} expand AND newlines
+          # are real (the old $'...' ANSI-C quoting kept ${VARS} literal).
+          NL=$'\n'
+          msg="🧹 <b>JunkFuck ${TAG} released!</b>${NL}${NL}A native Windows desktop build is out - no Python required:${NL}${NL}🖥️ <b>Windows x64</b> — <a href=\"https://github.com/${REPO}/releases/download/${TAG}/JunkFuck-windows-amd64.exe\">Download EXE</a>${NL}🖥️ <b>Windows ARM64</b> — <a href=\"https://github.com/${REPO}/releases/download/${TAG}/JunkFuck-windows-arm64.exe\">Download EXE</a>${NL}${NL}📦 <a href=\"${RELEASE_URL}\">View release on GitHub</a>${NL}${NL}⚠️ SmartScreen may warn about the unsigned EXE — click <b>More info</b> → <b>Run anyway</b>. It's the same open-source code you can read in the repo."
+          curl --fail --silent --show-error \
+            --form-string "chat_id=${CHAT_ID}" \
+            --form-string "parse_mode=HTML" \
+            --form-string "text=${msg}" \
+            "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage"
+          for file in dist/*.exe; do
+            [ -e "${file}" ] || continue
+            curl --fail --silent --show-error \
+              --form-string "chat_id=${CHAT_ID}" \
+              --form-string "parse_mode=HTML" \
+              -F "document=@${file}" \
+              --form-string "caption=🧹 <b>JunkFuck ${TAG}</b> - $(basename "$file")" \
+              "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument"
+          done
