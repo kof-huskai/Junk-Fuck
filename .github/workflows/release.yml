@@ -149,9 +149,11 @@ jobs:
             exit 0
           fi
 
-          # $'...' so \n renders as real newlines (double quotes would send
-          # literal backslash-n to Telegram).
-          msg=$'🧹 <b>JunkFuck ${TAG} released!</b>\n\nA native Windows desktop build is out - no Python required:\n\n🖥️ <b>Windows x64</b> — <a href="https://github.com/${REPO}/releases/download/${TAG}/JunkFuck-windows-amd64.exe">Download EXE</a>\n🖥️ <b>Windows ARM64</b> — <a href="https://github.com/${REPO}/releases/download/${TAG}/JunkFuck-windows-arm64.exe">Download EXE</a>\n\n📦 <a href="${RELEASE_URL}">View release on GitHub</a>\n\n⚠️ SmartScreen may warn about the unsigned EXE — click <b>More info</b> → <b>Run anyway</b>. It\'s the same open-source code you can read in the repo.'
+          # Double-quoted string + $NL so ${TAG}/${REPO} actually expand
+          # (the old $'...' ANSI-C quoting only converted \n to newlines and
+          # left ${VARS} literal — Telegram received "${TAG}" verbatim).
+          NL=$'\n'
+          msg="🧹 <b>JunkFuck ${TAG} released!</b>${NL}${NL}A native Windows desktop build is out - no Python required:${NL}${NL}🖥️ <b>Windows x64</b> — <a href=\"https://github.com/${REPO}/releases/download/${TAG}/JunkFuck-windows-amd64.exe\">Download EXE</a>${NL}🖥️ <b>Windows ARM64</b> — <a href=\"https://github.com/${REPO}/releases/download/${TAG}/JunkFuck-windows-arm64.exe\">Download EXE</a>${NL}${NL}📦 <a href=\"${RELEASE_URL}\">View release on GitHub</a>${NL}${NL}⚠️ SmartScreen may warn about the unsigned EXE — click <b>More info</b> → <b>Run anyway</b>. It's the same open-source code you can read in the repo."
 
           curl --fail --silent --show-error \
             --form-string "chat_id=${CHAT_ID}" \
