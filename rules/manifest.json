@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "rulesVersion": "2026.08.11.1",
+  "minimumAppVersion": "4.2.0",
+  "updatedAt": "2026-08-11T22:00:00Z",
+  "files": [
+    { "path": "windows.json", "sha256": "4565e9d851c9f6ec8941d74a67534fdf6c10a3267733bdf0ed15ca72d20fa13f" },
+    { "path": "games.json", "sha256": "e5bddcafc432e4635d808228497603a1e60efd6ea2e4c4c4c91912df78600974" },
+    { "path": "launchers.json", "sha256": "e09ddc0c25b045bce5adb4b1d5511751be0ba386bfea04f137490aaff047fc98" },
+    { "path": "browsers.json", "sha256": "888c24f56bf4d6cea45af1dc1b34d427d56f6409d2bea55e1be2e5d59ec1e244" },
+    { "path": "developer-tools.json", "sha256": "2acb3478ffa1918e7d0cf151335ef02c8ffb5284da2d000874c2a8057083e3e2" },
+    { "path": "vpn-proxies.json", "sha256": "ef47116c1d5bbf98848d133a918e2daeb86c685274473dc02a37fa05aa824d15" }
+  ]
+}

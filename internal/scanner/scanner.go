@@ -4,9 +4,12 @@ package scanner
 
 import (
 	"context"
+	"errors"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/kof-huskai/Junk-Fuck/internal/classifier"
@@ -14,6 +17,28 @@ import (
 	"github.com/kof-huskai/Junk-Fuck/internal/model"
 	"github.com/kof-huskai/Junk-Fuck/internal/protection"
 )
+
+// isPermissionError reports whether err is an access/permission denial. The
+// UI uses this to offer a one-time "run as administrator" hint — it must
+// never claim an arbitrary error is a permission problem.
+//
+// Recognized failures: os.ErrPermission and the Windows error codes for
+// access denied (5), privilege not held (1314), elevation required (740),
+// cannot access file (1920) and WSAEACCES (10013). The Errno numbers are
+// harmless no-ops on non-Windows platforms.
+func isPermissionError(err error) bool {
+	if errors.Is(err, os.ErrPermission) {
+		return true
+	}
+	var errno syscall.Errno
+	if errors.As(err, &errno) {
+		switch errno {
+		case 5, 1314, 740, 1920, 10013:
+			return true
+		}
+	}
+	return false
+}
 
 // Scanner discovers junk candidates within configured targets.
 type Scanner struct {
@@ -73,7 +98,7 @@ func (s *Scanner) Scan(ctx context.Context, scanID string, targets []string, pro
 		}
 		canon, err := filesystem.Canonical(target)
 		if err != nil {
-			scanErrors = append(scanErrors, model.ScanError{Path: target, Error: err.Error()})
+			scanErrors = append(scanErrors, model.ScanError{Path: target, Error: err.Error(), Permission: isPermissionError(err)})
 			continue
 		}
 
@@ -86,10 +111,10 @@ func (s *Scanner) Scan(ctx context.Context, scanID string, targets []string, pro
 			}
 			if err != nil {
 				if d != nil && d.IsDir() {
-					scanErrors = append(scanErrors, model.ScanError{Path: path, Error: err.Error()})
+					scanErrors = append(scanErrors, model.ScanError{Path: path, Error: err.Error(), Permission: isPermissionError(err)})
 					return fs.SkipDir
 				}
-				scanErrors = append(scanErrors, model.ScanError{Path: path, Error: err.Error()})
+				scanErrors = append(scanErrors, model.ScanError{Path: path, Error: err.Error(), Permission: isPermissionError(err)})
 				return nil
 			}
 
@@ -164,7 +189,7 @@ func (s *Scanner) Scan(ctx context.Context, scanID string, targets []string, pro
 			cancelled = true
 		}
 		if walkErr != nil && ctx.Err() == nil {
-			scanErrors = append(scanErrors, model.ScanError{Path: canon, Error: walkErr.Error()})
+			scanErrors = append(scanErrors, model.ScanError{Path: canon, Error: walkErr.Error(), Permission: isPermissionError(walkErr)})
 		}
 	}
 

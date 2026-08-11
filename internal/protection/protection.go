@@ -89,9 +89,22 @@ func builtinSystemPaths() []string {
 
 var driveRootRe = regexp.MustCompile(`^[A-Za-z]:[\\/]*$`)
 
+// DynamicProtector is an additive protection source (the whitelist rules
+// engine). It can only ADD protection — it has no authority to make
+// anything deletable. Implemented by *rules.Whitelist.
+type DynamicProtector interface {
+	// Protects reports whether path is protected by a dynamic rule.
+	Protects(path string) bool
+	// ProtectsAncestor reports whether path is a strict ancestor of a
+	// dynamically protected path (used to refuse deleting a directory that
+	// would swallow a whitelisted path).
+	ProtectsAncestor(path string) bool
+}
+
 // Protection holds the canonical protected path set.
 type Protection struct {
-	paths []string // canonical comparison keys
+	paths   []string // canonical comparison keys
+	dynamic DynamicProtector
 }
 
 // New builds a Protection from explicit rules.
@@ -148,7 +161,8 @@ func joinEnv(base string, elems ...string) string {
 }
 
 // IsProtected reports whether path equals or is under a protected root,
-// or is a drive root.
+// or is a drive root. Dynamic (whitelist) rules are additive: they can
+// only make more paths protected, never fewer.
 func (p *Protection) IsProtected(path string) bool {
 	key := compareKey(path)
 	if driveRootRe.MatchString(key) {
@@ -159,12 +173,15 @@ func (p *Protection) IsProtected(path string) bool {
 			return true
 		}
 	}
+	if p.dynamic != nil && p.dynamic.Protects(path) {
+		return true
+	}
 	return false
 }
 
 // IsAncestorOfProtected reports whether path is a strict ancestor of a
 // protected root. Used to refuse deleting a directory that would swallow a
-// protected path (safety SR-13).
+// protected path (safety SR-13). Dynamic whitelist rules participate too.
 func (p *Protection) IsAncestorOfProtected(path string) bool {
 	key := compareKey(path)
 	for _, base := range p.paths {
@@ -172,7 +189,15 @@ func (p *Protection) IsAncestorOfProtected(path string) bool {
 			return true
 		}
 	}
+	if p.dynamic != nil && p.dynamic.ProtectsAncestor(path) {
+		return true
+	}
 	return false
+}
+
+// SetDynamic installs (or clears) the additive whitelist protection source.
+func (p *Protection) SetDynamic(d DynamicProtector) {
+	p.dynamic = d
 }
 
 // List returns the protected roots (informational, for the UI).

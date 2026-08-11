@@ -86,8 +86,33 @@ export interface Progress {
 
 /**
  * ScanError records a path that could not be read during a scan.
+ * Permission is true when the failure is an access/permission denial
+ * (used by the UI to offer a one-time "run as administrator" hint).
  */
 export interface ScanError {
     "path": string;
     "error": string;
+    "permission": boolean;
+}
+
+/**
+ * ScanSummary is the canonical record of a successfully completed scan: it
+ * is the single source of truth for the Dashboard's last-scan summary and
+ * survives application restarts (persisted by the services layer). It is
+ * written only when a scan reaches a real successful terminal state —
+ * cancelled or failed scans never replace the previous successful summary.
+ * CompletedAt is a real timestamp (RFC3339 UTC, nanosecond precision, so
+ * successive scans never collide); the UI renders relative time from it,
+ * never a pre-rendered string.
+ */
+export interface ScanSummary {
+    /**
+     * RFC3339 UTC timestamp (nano)
+     */
+    "completedAt": string;
+    "target": string;
+    "filesScanned": number;
+    "junkItems": number;
+    "reclaimableBytes": number;
+    "errorCount": number;
 }

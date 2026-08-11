@@ -1,16 +1,17 @@
 import { useState } from "react";
-import { Check, Download, RefreshCw } from "lucide-react";
+import { Check, Download, RefreshCw, ShieldCheck } from "lucide-react";
 import { useI18n, type Language } from "../i18n";
 import { useStore } from "../lib/store";
 import { Button, Card, Checkbox, Input, Select } from "../components/ui";
 
 export function Settings() {
   const { t, lang, setLang } = useI18n();
-  const { settings, setSettings, appInfo, updateState, checkForUpdates, installUpdate, selectedRoot, setSelectedRoot } = useStore();
+  const { settings, setSettings, appInfo, updateState, checkForUpdates, installUpdate, selectedRoot, setSelectedRoot, rulesStatus, refreshRules } = useStore();
   const [targets, setTargets] = useState(selectedRoot);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
+  const [rulesBusy, setRulesBusy] = useState(false);
 
   const save = () => {
     // Writes the shared target state (same source the Dashboard/Scanner use).
@@ -46,24 +47,29 @@ export function Settings() {
   const state = updateState?.state;
 
   return (
-    <div className="flex flex-col gap-6 p-8">
+    <div className="flex min-w-0 flex-col gap-6 p-8">
       <div>
         <h1 className="text-2xl font-bold text-white">{t("set.title")}</h1>
       </div>
 
-      <Card className="max-w-xl">
+      {/* General — cards span the available content width (no artificial
+          max-width); independent fields share a desktop 2-column row and
+          the controls themselves stay compact. */}
+      <Card>
         <div className="flex flex-col gap-5">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-200">{t("set.language")}</label>
-            <Select value={lang} onChange={(e) => setLang(e.target.value as Language)} className="w-44">
-              <option value="en">English</option>
-              <option value="fa">فارسی</option>
-            </Select>
-          </div>
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-200">{t("set.language")}</label>
+              <Select value={lang} onChange={(e) => setLang(e.target.value as Language)} className="w-full lg:w-52">
+                <option value="en">English</option>
+                <option value="fa">فارسی</option>
+              </Select>
+            </div>
 
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-200">{t("set.target")}</label>
-            <Input value={targets} onChange={(e) => setTargets(e.target.value)} spellCheck={false} dir="ltr" />
+            <div className="min-w-0">
+              <label className="mb-1.5 block text-sm font-medium text-slate-200">{t("set.target")}</label>
+              <Input value={targets} onChange={(e) => setTargets(e.target.value)} spellCheck={false} dir="ltr" />
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
@@ -88,7 +94,7 @@ export function Settings() {
       </Card>
 
       {/* Updates */}
-      <Card className="max-w-xl">
+      <Card>
         <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-white">
           <RefreshCw size={15} className="text-accent" />
           {t("set.updates")}
@@ -143,6 +149,58 @@ export function Settings() {
           </div>
 
           <p className="text-xs text-muted">{t("set.updates.hint")}</p>
+        </div>
+      </Card>
+
+      {/* Protection rules — the whitelist engine. Distinct from the app
+          updater: rules updates add protection and are never application
+          updates. */}
+      <Card>
+        <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-white">
+          <ShieldCheck size={15} className="text-accent" />
+          {t("set.rules")}
+        </h2>
+        <div className="flex flex-col gap-4 text-sm">
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <p className="text-xs text-muted">{t("set.rules.version")}</p>
+              <p className="mt-1 font-semibold text-white" dir="ltr">
+                {rulesStatus?.activeVersion ?? "—"}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted">{t("set.rules.status")}</p>
+              <p className="mt-1 font-semibold text-white">
+                {rulesStatus ? t(`set.rules.status.${rulesStatus.status}`, { src: rulesStatus.source }) : "—"}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted">{t("set.rules.lastUpdated")}</p>
+              <p className="mt-1 font-semibold text-white" dir="ltr">
+                {rulesStatus?.lastUpdated ? rulesStatus.lastUpdated : t("set.rules.never")}
+              </p>
+            </div>
+          </div>
+
+          {rulesStatus && (
+            <p className="text-xs text-muted">
+              {t("set.rules.count", { n: rulesStatus.ruleCount })} · {t("set.rules.source")}: {rulesStatus.source}
+            </p>
+          )}
+          {rulesStatus?.error && (
+            <p className="rounded-md bg-warn/10 px-3 py-2 text-xs text-warn">
+              {t("set.rules.errorHint")} {rulesStatus.error}
+            </p>
+          )}
+
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" size="sm" onClick={() => void (async () => { setRulesBusy(true); try { await refreshRules(); } finally { setRulesBusy(false); } })()} disabled={rulesBusy}>
+              <RefreshCw size={13} className={rulesBusy ? "animate-spin" : ""} />
+              {t("set.rules.check")}
+            </Button>
+          </div>
+
+          <p className="text-xs text-muted">{t("set.rules.hint")}</p>
         </div>
       </Card>
     </div>

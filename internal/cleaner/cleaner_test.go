@@ -76,6 +76,53 @@ func TestRejectsPathOutsideSession(t *testing.T) {
 	}
 }
 
+// fakeProtector mirrors the whitelist engine's DynamicProtector contract
+// (exact matches; the real engine adds prefix semantics — irrelevant here).
+type fakeProtector struct {
+	protected []string
+}
+
+func (f fakeProtector) Protects(path string) bool {
+	for _, p := range f.protected {
+		if p == path {
+			return true
+		}
+	}
+	return false
+}
+
+func (f fakeProtector) ProtectsAncestor(string) bool { return false }
+
+// The whitelist is protection-only: a rule matching a candidate's path must
+// make that candidate non-deletable — remote data can never mark anything
+// for cleanup.
+func TestWhitelistProtectsExistingCandidate(t *testing.T) {
+	dir := t.TempDir()
+	app := filepath.Join(dir, "v2rayN")
+	if err := os.MkdirAll(app, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f := filepath.Join(app, "guiNConfig.json")
+	if err := os.WriteFile(f, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	pr := protection.New(protection.Rules{Env: protection.Env{}})
+	pr.SetDynamic(fakeProtector{protected: []string{f}})
+	if !pr.IsProtected(f) {
+		t.Fatal("setup: whitelist rule must protect the candidate path")
+	}
+
+	cleaner := New(pr)
+	rep := cleaner.Clean(false, makeSession(t, fileCandidate(f, 1)), []string{f})
+	if rep.SkippedCount != 1 {
+		t.Fatalf("whitelisted candidate must be skipped, got %+v", rep)
+	}
+	if _, err := os.Stat(f); err != nil {
+		t.Error("whitelisted file must not be deleted")
+	}
+}
+
 func TestSkipsProtectedCandidate(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "protected.tmp")

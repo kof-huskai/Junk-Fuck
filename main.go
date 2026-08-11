@@ -149,6 +149,8 @@ func main() {
 	settingsService := core.SettingsService()
 	settingsService.SetVersion(Version)
 	updateService := core.UpdateService()
+	rulesService := core.RulesService()
+	rulesService.SetAppVersion(Version)
 
 	app := application.New(application.Options{
 		Name:        "JunkFuck",
@@ -158,6 +160,7 @@ func main() {
 			application.NewService(core.CleanupService()),
 			application.NewService(settingsService),
 			application.NewService(updateService),
+			application.NewService(rulesService),
 		}, Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
 		},
@@ -183,6 +186,10 @@ func main() {
 		log.Printf("updater provider skipped: %v", err)
 	}
 	updateService.SetUpdater(app.Updater)
+
+	// Start the background whitelist-rules check (TTL-driven, non-blocking;
+	// failures fall back to the bundled ruleset).
+	rulesService.StartBackgroundCheck()
 
 	// Fixed-size, DPI-aware window: the user cannot resize or maximize it,
 	// but the application sizes it to fit the current monitor's logical

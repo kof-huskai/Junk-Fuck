@@ -2,10 +2,13 @@ package scanner
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/kof-huskai/Junk-Fuck/internal/classifier"
@@ -332,6 +335,30 @@ func TestScanHiddenProtectedContentStaysProtected(t *testing.T) {
 	for _, c := range res.Candidates {
 		if strings.Contains(strings.ToLower(c.Path), strings.ToLower(protected)) {
 			t.Errorf("protected content inside a hidden dir must be pruned, got %v", c.Path)
+		}
+	}
+}
+
+// isPermissionError must classify ONLY permission/access denials — the UI
+// shows its one-time admin hint based on this flag, so unrelated errors must
+// never be mislabelled as a permission problem.
+func TestIsPermissionError(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"os.ErrPermission", os.ErrPermission, true},
+		{"windows access denied", syscall.Errno(5), runtime.GOOS == "windows"},
+		{"elevation required", syscall.Errno(740), runtime.GOOS == "windows"},
+		{"privilege not held", syscall.Errno(1314), runtime.GOOS == "windows"},
+		{"wrapped permission", fmt.Errorf("walk %w", os.ErrPermission), true},
+		{"unrelated error", errors.New("some random failure"), false},
+		{"file not found", syscall.Errno(2), false},
+	}
+	for _, c := range cases {
+		if got := isPermissionError(c.err); got != c.want {
+			t.Errorf("%s: isPermissionError(%v) = %v, want %v", c.name, c.err, got, c.want)
 		}
 	}
 }

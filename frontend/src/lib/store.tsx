@@ -3,6 +3,7 @@ import * as scannerSvc from "../../bindings/github.com/kof-huskai/Junk-Fuck/serv
 import * as cleanupSvc from "../../bindings/github.com/kof-huskai/Junk-Fuck/services/cleanupservice";
 import * as settingsSvc from "../../bindings/github.com/kof-huskai/Junk-Fuck/services/settingsservice";
 import * as updateSvc from "../../bindings/github.com/kof-huskai/Junk-Fuck/services/updateservice";
+import * as rulesSvc from "../../bindings/github.com/kof-huskai/Junk-Fuck/services/rulesservice";
 import type * as model from "../../bindings/github.com/kof-huskai/Junk-Fuck/internal/model/models";
 import type * as platform from "../../bindings/github.com/kof-huskai/Junk-Fuck/internal/platform/models";
 import type * as report from "../../bindings/github.com/kof-huskai/Junk-Fuck/internal/report/models";
@@ -28,12 +29,19 @@ interface StoreValue {
   candidates: model.Candidate[];
   scanErrors: model.ScanError[];
   lastReport: report.Report | null;
+  /** Canonical record of the most recent successful scan (Dashboard). */
+  lastScan: model.ScanSummary | null;
+  refreshLastScan: () => Promise<void>;
   systemInfo: platform.Info | null;
   appInfo: Record<string, string> | null;
   protectedCount: number;
   updateState: services.UpdateState | null;
   /** True while an update check is in flight (startup or manual). */
   updateChecking: boolean;
+  /** Protection-whitelist rules snapshot (Settings → Protection rules). */
+  rulesStatus: services.RulesStatus | null;
+  /** Forces a fresh whitelist check (network) and updates rulesStatus. */
+  refreshRules: () => Promise<void>;
   settings: Settings;
   setSettings: (s: Partial<Settings>) => void;
   // Drive state — single source of truth shared by Dashboard and Scanner.
@@ -74,10 +82,12 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
   const [candidates, setCandidates] = useState<model.Candidate[]>([]);
   const [scanErrors, setScanErrors] = useState<model.ScanError[]>([]);
   const [lastReport, setLastReport] = useState<report.Report | null>(null);
+  const [lastScan, setLastScan] = useState<model.ScanSummary | null>(null);
   const [systemInfo, setSystemInfo] = useState<platform.Info | null>(null);
   const [appInfo, setAppInfo] = useState<Record<string, string> | null>(null);
   const [protectedCount, setProtectedCount] = useState(0);
   const [updateState, setUpdateState] = useState<services.UpdateState | null>(null);
+  const [rulesStatus, setRulesStatus] = useState<services.RulesStatus | null>(null);
   // Starts true because a startup check always runs: the Sidebar shows
   // "Checking…" from the very first frame instead of flashing "not checked".
   const [updateChecking, setUpdateChecking] = useState(true);
@@ -146,6 +156,15 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
     if (list) setCandidates(list);
   }, [scanId]);
 
+  // Reads the backend's canonical last-scan summary (persisted, survives
+  // restarts). Called after every successful completion and at startup; the
+  // backend only records REAL successful terminal scans, so cancelled or
+  // failed scans never show up here.
+  const refreshLastScan = useCallback(async () => {
+    const s = await scannerSvc.GetLastScanSummary().catch(() => null);
+    setLastScan(s);
+  }, []);
+
   const refreshMeta = useCallback(async () => {
     const [info, app, paths] = await Promise.all([
       scannerSvc.GetSystemInfo().catch(() => null),
@@ -193,6 +212,17 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
     [scanId],
   );
 
+  const refreshRules = useCallback(async () => {
+    try {
+      setRulesStatus(await rulesSvc.RefreshRules());
+    } catch {
+      // A failed check must not blank the card: re-read the backend's
+      // snapshot (which now reports the error state) and keep showing the
+      // last known version/count.
+      setRulesStatus(await rulesSvc.GetRulesStatus().catch(() => null));
+    }
+  }, []);
+
   const checkForUpdates = useCallback(async () => {
     setUpdateChecking(true);
     try {
@@ -221,11 +251,15 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
       candidates,
       scanErrors,
       lastReport,
+      lastScan,
+      refreshLastScan,
       systemInfo,
       appInfo,
       protectedCount,
       updateState,
       updateChecking,
+      rulesStatus,
+      refreshRules,
       settings,
       setSettings,
       drives,
@@ -245,7 +279,7 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
       installUpdate,
       refreshUpdate,
     }),
-    [scanId, scanning, cancelled, progress, candidates, scanErrors, lastReport, systemInfo, appInfo, protectedCount, updateState, updateChecking, settings, drives, drivesLoaded, drivesError, driveSwitchedFrom, selectedRoot, setSelectedRoot, refreshDrives, completedScan, startScan, cancelScan, refreshCandidates, refreshMeta, cleanup, checkForUpdates, installUpdate, refreshUpdate],
+    [scanId, scanning, cancelled, progress, candidates, scanErrors, lastReport, lastScan, refreshLastScan, systemInfo, appInfo, protectedCount, updateState, updateChecking, rulesStatus, refreshRules, settings, drives, drivesLoaded, drivesError, driveSwitchedFrom, selectedRoot, setSelectedRoot, refreshDrives, completedScan, startScan, cancelScan, refreshCandidates, refreshMeta, cleanup, checkForUpdates, installUpdate, refreshUpdate],
   );
 
   // Live event wiring (runs once per provider mount; StrictMode-safe).
@@ -258,7 +292,7 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
       setScanning(false);
       setCancelled(!!e.cancelled);
       if (e.error) {
-        setScanErrors((prev) => [...prev, { path: "", error: e.error ?? "unknown error" }]);
+        setScanErrors((prev) => [...prev, { path: "", error: e.error ?? "unknown error", permission: false }]);
       }
       // Persist the final results BEFORE signalling completion so the
       // Results page never navigates into an empty store.
@@ -274,14 +308,18 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
           if (errs) setScanErrors(errs);
         } catch {
           // no errors yet
-        }
-        // One completed scan => exactly one completion signal. ok means
-        // "finished with results" — cancelled and failed scans stay put.
-        // The active-scan guard drops stale completions from a scan that was
-        // superseded before its final fetch finished.
-        if (activeScanRef.current === e.scanId) {
-          setCompletedScan({ scanId: e.scanId, ok: !e.cancelled && !e.error });
-        }
+        }		// The backend persisted the canonical summary BEFORE emitting
+		// scan:done, so this read is already authoritative. Cancelled/failed
+		// scans never record a summary, so this only ever shows the latest
+		// REAL successful scan — and survives restarts via the backend file.
+		void refreshLastScan();
+		// One completed scan => exactly one completion signal. ok means
+		// "finished with results" — cancelled and failed scans stay put.
+		// The active-scan guard drops stale completions from a scan that was
+		// superseded before its final fetch finished.
+		if (activeScanRef.current === e.scanId) {
+			setCompletedScan({ scanId: e.scanId, ok: !e.cancelled && !e.error });
+		}
       })();
     });
     return () => {
@@ -291,16 +329,24 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Startup: read the initial updater snapshot and kick off exactly ONE
-  // background update check. The check is async and non-blocking — the UI
-  // is interactive immediately; it only feeds the shared update state that
-  // Sidebar and Settings both subscribe to. No modal, no auto-install.
+  // Startup: load the initial system/app metadata (so the Scanner admin
+  // hint can rely on systemInfo without the user ever visiting About), read
+  // the updater snapshot, and kick off exactly ONE background update check.
+  // Everything here is async and non-blocking — the UI is interactive
+  // immediately.
   useEffect(() => {
+    void refreshMeta();
     void refreshUpdate();
+    // Restore the last successful scan across restarts (Dashboard + Results
+    // both read from this single canonical state).
+    void refreshLastScan();
     if (startupCheckDone.current) return;
     startupCheckDone.current = true;
     void checkForUpdates();
-  }, [refreshUpdate, checkForUpdates]);
+    // Read the backend's whitelist-rules snapshot (bundled rules are always
+    // active; the backend runs its own background TTL check).
+    void rulesSvc.GetRulesStatus().then(setRulesStatus).catch(() => null);
+  }, [refreshUpdate, checkForUpdates, refreshMeta, refreshLastScan]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

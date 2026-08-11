@@ -1,21 +1,57 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { useI18n } from "../i18n";
 import { useStore } from "../lib/store";
 import { driveTypeKey, formatBytes } from "../lib/format";
 import { Button, Card, ProgressBar, Select } from "../components/ui";
+import * as settingsSvc from "../../bindings/github.com/kof-huskai/Junk-Fuck/services/settingsservice";
 
 export function Scanner() {
   const { t } = useI18n();
-  const { scanning, progress, scanErrors, scanId, cancelled, drives, drivesLoaded, drivesError, driveSwitchedFrom, selectedRoot, setSelectedRoot, refreshDrives, startScan, cancelScan } = useStore();
+  const { scanning, progress, scanErrors, scanId, cancelled, drives, drivesLoaded, drivesError, driveSwitchedFrom, selectedRoot, setSelectedRoot, refreshDrives, startScan, cancelScan, systemInfo } = useStore();
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  // One quiet admin hint per scan, and only for permission-related errors:
+  // the first access-denied error sets it; extra permission errors in the
+  // same scan never repeat it, and a new scan resets it.
+  const [showAdminHint, setShowAdminHint] = useState(false);
+  const [relaunchMsg, setRelaunchMsg] = useState<string | null>(null);
+  const adminHintShown = useRef(false);
 
   // Refresh the drive list whenever the Scanner page is opened, so newly
   // attached/removed drives are reflected without continuous polling.
   useEffect(() => {
     void refreshDrives();
   }, [refreshDrives]);
+
+  // A new scan = a fresh hint budget.
+  useEffect(() => {
+    adminHintShown.current = false;
+    setShowAdminHint(false);
+    setRelaunchMsg(null);
+  }, [scanId]);
+
+  // Show the hint once, only when a permission-classified error arrives and
+  // the app is not already elevated (no elevation loop).
+  useEffect(() => {
+    if (adminHintShown.current || !systemInfo || systemInfo.isAdmin) return;
+    if (scanErrors.some((e) => e.permission)) {
+      adminHintShown.current = true;
+      setShowAdminHint(true);
+    }
+  }, [scanErrors, systemInfo]);
+
+  const relaunchAdmin = async () => {
+    setRelaunchMsg(null);
+    try {
+      const ok = await settingsSvc.RelaunchElevated();
+      // ok=true: the elevated instance is starting and this one will quit.
+      // ok=false: UAC was cancelled — the current app stays open.
+      setRelaunchMsg(ok ? t("scan.adminRelaunching") : t("scan.adminCancelled"));
+    } catch (err) {
+      setRelaunchMsg(String(err));
+    }
+  };
 
   const readyDrives = drives.filter((d) => d.ready);
   const selectedIsDrive = drives.some((d) => d.root.toLowerCase() === selectedRoot.toLowerCase());
@@ -135,6 +171,23 @@ export function Scanner() {
             <p className="mt-1 font-semibold text-warn">{progress?.errors ?? 0}</p>
           </div>
         </div>
+
+        {/* Quiet one-time hint after the first permission-related scan error.
+            Small and muted on purpose; the error count above stays accurate. */}
+        {showAdminHint && (
+          <p className="mt-3 rounded-md border border-warn/25 bg-warn/10 px-3 py-2 text-xs leading-relaxed text-warn">
+            {t("scan.adminHint")}{" "}
+            <button
+              type="button"
+              onClick={() => void relaunchAdmin()}
+              className="rounded-[4px] font-medium underline decoration-warn/50 underline-offset-2 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-warn/60"
+            >
+              {t("scan.adminRelaunch")}
+            </button>
+            {relaunchMsg && <span className="mt-1 block opacity-90">{relaunchMsg}</span>}
+          </p>
+        )}
+        {relaunchMsg && !showAdminHint && <p className="mt-2 text-xs text-muted">{relaunchMsg}</p>}
       </Card>
 
       {scanErrors.length > 0 && (

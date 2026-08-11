@@ -1,0 +1,18 @@
+[
+  {
+    "id": "firefox-profiles",
+    "category": "browsers",
+    "application": "Firefox",
+    "description": "Protect Firefox profile databases (logins, history, keys).",
+    "match": { "type": "prefix", "env": "APPDATA", "path": "Mozilla\\Firefox\\Profiles" },
+    "protection": "deny-delete"
+  },
+  {
+    "id": "firefox-profiles-ini",
+    "category": "browsers",
+    "application": "Firefox",
+    "description": "Protect the Firefox profile registry file.",
+    "match": { "type": "exact", "env": "APPDATA", "path": "Mozilla\\Firefox\\profiles.ini" },
+    "protection": "deny-delete"
+  }
+]

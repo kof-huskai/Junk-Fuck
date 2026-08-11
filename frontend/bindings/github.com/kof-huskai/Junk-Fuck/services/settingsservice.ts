@@ -30,6 +30,20 @@ export function GetSettings(): $CancellablePromise<$models.Settings> {
 }
 
 /**
+ * RelaunchElevated requests an elevated relaunch of Junk-Fuck. Elevation is
+ * always an explicit user action: this triggers the Windows UAC prompt and
+ * never runs silently.
+ * 
+ * On success (UAC accepted) the current instance cancels any active scan
+ * and quits shortly after, so only the elevated instance keeps running —
+ * two long-lived instances are never created. On cancel or failure the
+ * current instance stays open and keeps working.
+ */
+export function RelaunchElevated(): $CancellablePromise<boolean> {
+    return $Call.ByID(3102818888);
+}
+
+/**
  * SaveSettings validates and stores a settings snapshot.
  */
 export function SaveSettings(settings: $models.Settings): $CancellablePromise<$models.Settings> {

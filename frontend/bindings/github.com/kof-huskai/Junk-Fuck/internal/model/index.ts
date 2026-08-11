@@ -9,5 +9,6 @@ export type {
     Candidate,
     DriveInfo,
     Progress,
-    ScanError
+    ScanError,
+    ScanSummary
 } from "./models.js";

@@ -35,6 +35,16 @@ export function GetCandidates(scanID: string): $CancellablePromise<model$0.Candi
 }
 
 /**
+ * GetLastScanSummary returns the canonical record of the most recently
+ * successfully completed scan (nil before the first successful scan).
+ * Cancelled or failed scans never replace it. This is the single source of
+ * truth for the Dashboard's last-scan summary and survives restarts.
+ */
+export function GetLastScanSummary(): $CancellablePromise<model$0.ScanSummary | null> {
+    return $Call.ByID(1525495404);
+}
+
+/**
  * GetProtectedPaths returns the canonical protected roots (informational).
  */
 export function GetProtectedPaths(): $CancellablePromise<string[] | null> {

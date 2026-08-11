@@ -1,0 +1,42 @@
+[
+  {
+    "id": "v2rayn-config",
+    "category": "vpn-proxies",
+    "application": "v2rayN",
+    "description": "Protect v2rayN profiles, subscriptions and configuration.",
+    "match": { "type": "prefix", "env": "APPDATA", "path": "v2rayN" },
+    "protection": "deny-delete"
+  },
+  {
+    "id": "clash-verge-config",
+    "category": "vpn-proxies",
+    "application": "Clash Verge",
+    "description": "Protect Clash Verge profiles and configuration.",
+    "match": { "type": "prefix", "env": "APPDATA", "path": "clash-verge" },
+    "protection": "deny-delete"
+  },
+  {
+    "id": "clash-verge-rev-config",
+    "category": "vpn-proxies",
+    "application": "Clash Verge Rev",
+    "description": "Protect Clash Verge Rev profiles and configuration.",
+    "match": { "type": "prefix", "env": "APPDATA", "path": "io.github.clash-verge-rev.clash-verge-rev" },
+    "protection": "deny-delete"
+  },
+  {
+    "id": "clash-for-windows-config",
+    "category": "vpn-proxies",
+    "application": "Clash for Windows",
+    "description": "Protect Clash for Windows configuration and profiles.",
+    "match": { "type": "prefix", "env": "APPDATA", "path": "clash" },
+    "protection": "deny-delete"
+  },
+  {
+    "id": "nekoray-config",
+    "category": "vpn-proxies",
+    "application": "Nekoray",
+    "description": "Protect Nekoray configuration and server profiles.",
+    "match": { "type": "prefix", "env": "APPDATA", "path": "nekoray" },
+    "protection": "deny-delete"
+  }
+]

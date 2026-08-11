@@ -1,0 +1,42 @@
+[
+  {
+    "id": "maven-settings",
+    "category": "developer-tools",
+    "application": "Maven",
+    "description": "Protect Maven settings (credentials, mirrors).",
+    "match": { "type": "exact", "env": "USERPROFILE", "path": ".m2\\settings.xml" },
+    "protection": "deny-delete"
+  },
+  {
+    "id": "gradle-properties",
+    "category": "developer-tools",
+    "application": "Gradle",
+    "description": "Protect Gradle properties (credentials).",
+    "match": { "type": "exact", "env": "USERPROFILE", "path": ".gradle\\gradle.properties" },
+    "protection": "deny-delete"
+  },
+  {
+    "id": "nuget-config",
+    "category": "developer-tools",
+    "application": "NuGet",
+    "description": "Protect NuGet package-source credentials.",
+    "match": { "type": "exact", "env": "APPDATA", "path": "NuGet\\NuGet.Config" },
+    "protection": "deny-delete"
+  },
+  {
+    "id": "npmrc-user",
+    "category": "developer-tools",
+    "application": "npm",
+    "description": "Protect npm registry authentication.",
+    "match": { "type": "exact", "env": "USERPROFILE", "path": ".npmrc" },
+    "protection": "deny-delete"
+  },
+  {
+    "id": "docker-config",
+    "category": "developer-tools",
+    "application": "Docker",
+    "description": "Protect Docker registry credentials.",
+    "match": { "type": "exact", "env": "USERPROFILE", "path": ".docker\\config.json" },
+    "protection": "deny-delete"
+  }
+]

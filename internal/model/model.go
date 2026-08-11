@@ -39,10 +39,30 @@ type Progress struct {
 	Done         bool   `json:"done"`
 }
 
+// ScanSummary is the canonical record of a successfully completed scan: it
+// is the single source of truth for the Dashboard's last-scan summary and
+// survives application restarts (persisted by the services layer). It is
+// written only when a scan reaches a real successful terminal state —
+// cancelled or failed scans never replace the previous successful summary.
+// CompletedAt is a real timestamp (RFC3339 UTC, nanosecond precision, so
+// successive scans never collide); the UI renders relative time from it,
+// never a pre-rendered string.
+type ScanSummary struct {
+	CompletedAt      string `json:"completedAt"` // RFC3339 UTC timestamp (nano)
+	Target           string `json:"target"`
+	FilesScanned     int64  `json:"filesScanned"`
+	JunkItems        int    `json:"junkItems"`
+	ReclaimableBytes int64  `json:"reclaimableBytes"`
+	ErrorCount       int    `json:"errorCount"`
+}
+
 // ScanError records a path that could not be read during a scan.
+// Permission is true when the failure is an access/permission denial
+// (used by the UI to offer a one-time "run as administrator" hint).
 type ScanError struct {
-	Path  string `json:"path"`
-	Error string `json:"error"`
+	Path       string `json:"path"`
+	Error      string `json:"error"`
+	Permission bool   `json:"permission"`
 }
 
 // Result is the outcome of a scan operation.

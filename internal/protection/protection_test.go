@@ -2,8 +2,35 @@ package protection
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 )
+
+// fakeProtector is a minimal DynamicProtector for contract tests. It
+// protects exactly the listed paths (no prefix semantics — the whitelist
+// engine implements those; here we only test the protection integration).
+type fakeProtector struct {
+	protected []string
+	ancestors []string
+}
+
+func (f fakeProtector) Protects(path string) bool {
+	for _, p := range f.protected {
+		if strings.EqualFold(p, path) {
+			return true
+		}
+	}
+	return false
+}
+
+func (f fakeProtector) ProtectsAncestor(path string) bool {
+	for _, p := range f.ancestors {
+		if strings.EqualFold(p, path) {
+			return true
+		}
+	}
+	return false
+}
 
 func emptyRules() Rules {
 	return Rules{Env: Env{}}
@@ -144,5 +171,58 @@ func TestListIsStable(t *testing.T) {
 	p := New(emptyRules())
 	if len(p.List()) == 0 {
 		t.Fatal("expected at least the builtin paths")
+	}
+}
+
+// The whitelist engine is an ADDITIVE protection source: it can only make
+// more paths protected. Hard-coded safety always wins — a dynamic source
+// can never disable it, and clearing the dynamic source removes only the
+// dynamic protections.
+func TestDynamicProtectorIsAdditive(t *testing.T) {
+	p := New(emptyRules())
+	whitelisted := `C:\Users\demo\AppData\Roaming\v2rayN`
+	if p.IsProtected(whitelisted) {
+		t.Fatal("setup: dynamic path must not be protected before wiring")
+	}
+
+	p.SetDynamic(fakeProtector{protected: []string{whitelisted}, ancestors: []string{`C:\Users\demo`}})
+
+	// Dynamic rule adds protection.
+	if !p.IsProtected(whitelisted) {
+		t.Error("whitelisted path must become protected")
+	}
+	// Hard-coded safety is unaffected (even though the dynamic source does
+	// not cover it).
+	if !p.IsProtected(`C:\Windows\System32\drivers\etc\hosts`) {
+		t.Error("hard-coded protection must stay active")
+	}
+	// Dynamic ancestor check participates in the same refusal.
+	if !p.IsAncestorOfProtected(`C:\Users\demo`) {
+		t.Error("ancestor of a whitelisted path must be refused for deletion")
+	}
+	// Unrelated paths stay unprotected.
+	if p.IsProtected(`C:\Users\demo\Downloads\setup.exe`) {
+		t.Error("unrelated path must stay unprotected")
+	}
+
+	// Clearing the dynamic source removes only dynamic protections.
+	p.SetDynamic(nil)
+	if p.IsProtected(whitelisted) {
+		t.Error("clearing the dynamic source must remove dynamic protection")
+	}
+	if !p.IsProtected(`C:\Windows\System32`) {
+		t.Error("hard protection must survive SetDynamic(nil)")
+	}
+}
+
+// A dynamic source with no rules cannot affect anything, and the contract
+// is strictly one-way: nothing in Protection can ever mark a path deletable.
+func TestDynamicSourceCannotWeakenProtection(t *testing.T) {
+	p := New(emptyRules())
+	p.SetDynamic(fakeProtector{})
+	for _, path := range []string{`C:\Windows`, `C:\Program Files`, `C:\`} {
+		if !p.IsProtected(path) {
+			t.Errorf("%s must stay protected with an empty dynamic source", path)
+		}
 	}
 }

@@ -1,15 +1,37 @@
+import { useEffect, useState } from "react";
 import { ShieldCheck } from "lucide-react";
 import { useI18n } from "../i18n";
 import { useStore } from "../lib/store";
+import { dashboardCounts, relativeTime, type RelativeTime } from "../lib/dashboard";
 import { driveTypeKey, formatBytes } from "../lib/format";
 import { Button, Card } from "../components/ui";
 
 export function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
   const { t } = useI18n();
-  const { scanning, candidates, lastReport, drives, drivesLoaded, selectedRoot, startScan, refreshCandidates } = useStore();
+  const { scanning, candidates, lastScan, drives, drivesLoaded, selectedRoot, startScan, refreshCandidates } = useStore();
 
-  const total = candidates.reduce((s, c) => s + c.size, 0);
-  const lastSize = lastReport ? lastReport.bytesFreed : 0;
+  // Canonical last-scan summary (persisted backend-side, survives restarts;
+  // cancelled/failed scans never replace it). Counts fall back to the live
+  // session while a scan is in progress or before the first scan.
+  const counts = dashboardCounts(lastScan, scanning, candidates);
+
+  // A lightweight minute-level tick keeps the relative "Last scan" label
+  // fresh while the page stays open (e.g. "Just now" → "1 min ago"). It
+  // only runs while a last scan actually exists.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    if (!lastScan) return;
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, [lastScan]);
+
+  const lastTime: RelativeTime | null = lastScan ? relativeTime(lastScan.completedAt, now) : null;
+  const renderRel = (rt: RelativeTime) =>
+    rt.kind === "justNow"
+      ? t("time.justNow")
+      : rt.kind === "unit"
+        ? t(rt.key, { n: rt.n })
+        : t("time.date", { date: rt.date });
 
   // The single shared target state: prefer the backend-detected drive label.
   const selected = drives.find((d) => d.root.toLowerCase() === selectedRoot.toLowerCase());
@@ -43,14 +65,14 @@ export function Dashboard({ onNavigate }: { onNavigate: (page: string) => void }
 
         <Card>
           <p className="text-xs font-medium uppercase tracking-wide text-muted">{t("dash.items")}</p>
-          <p className="mt-2 text-2xl font-bold text-white">{candidates.length}</p>
-          <p className="mt-1 text-xs text-muted">{t("dash.lastScan")}: {lastReport ? "—" : t("dash.never")}</p>
+          <p className="mt-2 text-2xl font-bold text-white">{counts.items}</p>
+          <p className="mt-1 text-xs text-muted">{t("dash.lastScan")}: {lastTime ? renderRel(lastTime) : t("dash.never")}</p>
         </Card>
 
         <Card>
           <p className="text-xs font-medium uppercase tracking-wide text-muted">{t("dash.reclaimable")}</p>
-          <p className="mt-2 text-2xl font-bold text-accent">{formatBytes(total)}</p>
-          <p className="mt-1 text-xs text-muted">{t("dash.lastScan")}: {lastReport ? formatBytes(lastSize) : t("dash.never")}</p>
+          <p className="mt-2 text-2xl font-bold text-accent">{formatBytes(counts.reclaimable)}</p>
+          {lastScan && <p className="mt-1 text-xs text-muted">{lastScan.target}</p>}
         </Card>
 
         <Card>

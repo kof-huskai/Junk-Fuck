@@ -1,0 +1,34 @@
+[
+  {
+    "id": "saved-games-folder",
+    "category": "games",
+    "application": "Windows",
+    "description": "Protect the Windows Saved Games library folder.",
+    "match": { "type": "prefix", "env": "USERPROFILE", "path": "Saved Games" },
+    "protection": "deny-delete"
+  },
+  {
+    "id": "documents-my-games",
+    "category": "games",
+    "application": "Game saves",
+    "description": "Protect per-title game saves stored under Documents.",
+    "match": { "type": "prefix", "env": "USERPROFILE", "path": "Documents\\My Games" },
+    "protection": "deny-delete"
+  },
+  {
+    "id": "gog-galaxy-config",
+    "category": "games",
+    "application": "GOG Galaxy",
+    "description": "Protect GOG Galaxy per-user configuration.",
+    "match": { "type": "prefix", "env": "LOCALAPPDATA", "path": "GOG.com\\Galaxy\\config" },
+    "protection": "deny-delete"
+  },
+  {
+    "id": "riot-client-config",
+    "category": "games",
+    "application": "Riot Client",
+    "description": "Protect Riot Client configuration and account state.",
+    "match": { "type": "prefix", "env": "LOCALAPPDATA", "path": "Riot Games\\Riot Client\\Config" },
+    "protection": "deny-delete"
+  }
+]

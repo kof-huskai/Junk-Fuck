@@ -1,0 +1,18 @@
+[
+  {
+    "id": "epic-launcher-config",
+    "category": "launchers",
+    "application": "Epic Games Launcher",
+    "description": "Protect Epic Games Launcher saved settings.",
+    "match": { "type": "prefix", "env": "LOCALAPPDATA", "path": "EpicGamesLauncher\\Saved\\Config" },
+    "protection": "deny-delete"
+  },
+  {
+    "id": "ea-desktop-settings",
+    "category": "launchers",
+    "application": "EA app",
+    "description": "Protect EA app per-user settings.",
+    "match": { "type": "prefix", "env": "LOCALAPPDATA", "path": "Electronic Arts\\EA Desktop\\settings" },
+    "protection": "deny-delete"
+  }
+]

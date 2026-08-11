@@ -32,6 +32,8 @@ What it does NOT do:
   happens against the candidate set produced by the current scan session.
 - No silent privilege elevation, no registry/system-service changes.
 - No background/continuous scanning or polling; scans are explicit user actions.
+- Remote whitelist rules never delete anything: the rules system is
+  protection-only (see Safety boundary).
 
 ## Working agreements
 
@@ -77,7 +79,34 @@ Project-specific invariants (paths are real):
   and candidate-validation rules as visible content. Hidden never implies
   deletable.
 - Privilege elevation never happens silently; the app reports elevation status
-  (`internal/platform/info_windows.go`) and the UI surfaces it.
+  (`internal/platform/info_windows.go`) and the UI surfaces it. The only
+  elevation path is an explicit user action (`RelaunchElevated`, UAC "runas"
+  prompt) that relaunches the app and closes the old instance; a cancelled
+  UAC prompt leaves the current instance running.
+- The remote whitelist (RULES) is a WHITELIST/PROTECTION system only:
+  - Remote data may ADD protection; it must never add deletion authority
+    (the rule schema has no field capable of expressing it — `protection`
+    only accepts `deny-delete`).
+  - Hard-coded core safety always wins; a missing/malicious/corrupted remote
+    never disables it.
+  - The bundled whitelist (`rules/*.json`, embedded via the root `rules`
+    package) keeps the app fully safe offline. Remote updates come from the
+    SAME repository's `rules/` path on GitHub
+    (`raw.githubusercontent.com/kof-huskai/Junk-Fuck/main/rules`) — no
+    separate repository exists. Version convention: bump `rulesVersion` in
+    `rules/manifest.json` whenever the bundled rules change (the app
+    compares explicit rules versions, not git SHAs). Because `main` is the
+    live remote source for every released client, merge rule changes
+    conservatively (whitelist rules can only add protection, but
+    over-broad rules can disable legitimate cleaning). Keep
+    `minimumAppVersion` in `rules/manifest.json` consistent with the app
+    version in `build/config.yml` so older clients are not silently
+    blocked from rules updates.
+  - Rule updates are validated (schema, app-version compatibility, sha256,
+    rule structure, no wildcards/traversal/bare roots) and swapped in
+    atomically; a failed update keeps the last valid ruleset.
+  - Rule updates are distinct from app updates: they are never application
+    binary updates.
 
 ## Architecture
 
@@ -101,7 +130,15 @@ Modules:
   dot-prefixed names are both walked); hidden state is metadata, never junk.
 - `internal/classifier` — rules that decide whether a path is junk and its
   category.
-- `internal/protection` — protected roots and skip rules.
+- `internal/protection` — protected roots and skip rules; supports an
+  additive `DynamicProtector` (wired to the whitelist engine).
+- `rules/` — the bundled whitelist DATA (manifest + category JSON), embedded
+  into the binary via the root `rules` package; also the remote update path.
+- `internal/whitelist` — the protection-whitelist engine: versioned
+  manifest, declarative rules, validation, embedded-bundle loading, validated
+  cache + remote updater (same-repo raw GitHub, TTL 24h, atomic cache write,
+  manifest-first version gating — a remote version that is not newer
+  downloads nothing).
 - `internal/cleaner` — validated deletion against a scan session snapshot.
 - `internal/filesystem` — portable FS helpers (compare keys, read-only attr).
 - `internal/model` — shared data types (dependency-free package).
@@ -109,7 +146,8 @@ Modules:
   `_windows.go` / `_other.go` build-tagged files.
 - `internal/report` — cleanup report model.
 - `services/` — Wails services: scanner (scan control, drive list, validation),
-  cleaner, settings (app info/version), updater.
+  cleaner, settings (app info/version, elevated relaunch), updater, rules
+  (whitelist status + refresh; background TTL check wired in `main.go`).
 - `main.go` — window creation, theming, fixed-size monitor-aware sizing,
   updater registration.
 - `frontend/` — React app: `src/App.tsx` shell, `src/lib/store.tsx` shared
@@ -151,6 +189,17 @@ The pure Go core stays independent of Wails (no `pkg/application` imports in
   effect, ref-guarded against StrictMode double-invocation) via the existing
   `UpdateService.CheckForUpdates`; no modal, no auto-install; Sidebar and
   Settings share the same `store.updateState`/`updateChecking`.
+- Sidebar motion is one coordinated layout transition: the app shell is a
+  grid (`grid-template-columns: var(--sidebar-width) minmax(0,1fr)` animated
+  180ms `cubic-bezier(0.2,0,0,1)`); main content moves at exactly the same
+  pace as the sidebar (never an overlay). Nav labels stay mounted and fade
+  (opacity + small translate) while the shrinking column clips them; the icon
+  column uses constant padding so icons stay optically fixed. Reduced-motion
+  is honored globally.
+- Scanner admin hint: one quiet hint per scan, shown only when the backend
+  classifies a scan error as an access/permission denial
+  (`ScanError.Permission`) and the app is not already elevated; "Run as
+  administrator" is an inline link that triggers `RelaunchElevated`.
 - Localization is en/fa with RTL switching; language selection lives in
   Settings (no floating switcher).
 - UI layout must be verified in the running Wails application, not only in a
@@ -163,13 +212,21 @@ The pure Go core stays independent of Wails (no `pkg/application` imports in
    (`ScannerService.ListDrives` → `platform.ListDrives`), ordered system/fixed
    first. The selected root is shared single state in the frontend store.
 2. Scan: `StartScan` validates the target backend-side, then runs in a
-   goroutine emitting `scan:progress` events.
+   goroutine emitting `scan:progress` events. Unreadable paths are recorded as
+   `ScanError`s; access/permission denials carry `Permission: true` so the UI
+   can offer its one-time admin hint (the error count stays accurate).
 3. Completion: the backend emits `scan:done` with `scanId`, `cancelled` and
    `error`; the frontend store persists final candidates/errors, then signals
    completion.
 4. Results: the shell auto-navigates to Results **only** on successful
    completion (including zero-result scans). Cancelled or failed scans stay on
    the Scanner page.
+5. Last-scan summary: on a real successful terminal state the backend records
+   the canonical `model.ScanSummary` (RFC3339 UTC timestamp, target, item
+   count, reclaimable bytes, error count), persisted atomically to
+   `%LOCALAPPDATA%\JunkFuck\last-scan.json` and reloaded at startup. It is
+   the single source of truth for the Dashboard; cancelled/failed scans never
+   overwrite it. Never build a second Dashboard-side "last scan" state.
 
 ## Build and test
 
@@ -190,6 +247,8 @@ Prerequisites: Go 1.25+, Node 22+, the pinned Wails v3 CLI
   resource, and injects the version).
 - Package/installer: `wails3 package` (NSIS installer; the release pipeline
   currently ships portable EXEs instead).
+- Whitelist cache lives in the per-user cache dir (`%LOCALAPPDATA%\JunkFuck\rules`)
+  — a validated, versioned copy of the remote ruleset; never commit it.
 
 When the owner requests it, a release-quality build must be manually tested
 before it may be published.

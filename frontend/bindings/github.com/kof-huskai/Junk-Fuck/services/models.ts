@@ -6,6 +6,31 @@
 import * as report$0 from "../internal/report/models.js";
 
 /**
+ * RulesStatus is a snapshot of the protection-whitelist engine for the
+ * Settings UI. It is informational only — it exposes no deletion authority.
+ */
+export interface RulesStatus {
+    "schemaVersion": number;
+    "activeVersion": string;
+    "bundledVersion": string;
+    "cachedVersion"?: string;
+
+    /**
+     * Source: bundled | cache | remote.
+     */
+    "source": string;
+
+    /**
+     * Status: up-to-date | error | not-checked.
+     */
+    "status": string;
+    "lastChecked"?: string;
+    "lastUpdated"?: string;
+    "ruleCount": number;
+    "error"?: string;
+}
+
+/**
  * Settings mirrors the user-editable application settings persisted on the
  * frontend side (localStorage). The service exposes them for reads and
  * validation; persistence stays in the UI for simplicity.

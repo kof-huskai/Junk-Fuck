@@ -1,0 +1,42 @@
+[
+  {
+    "id": "user-ssh",
+    "category": "windows",
+    "application": "OpenSSH",
+    "description": "Protect SSH private keys and configuration.",
+    "match": { "type": "prefix", "env": "USERPROFILE", "path": ".ssh" },
+    "protection": "deny-delete"
+  },
+  {
+    "id": "user-gnupg",
+    "category": "windows",
+    "application": "GnuPG",
+    "description": "Protect GPG private key material.",
+    "match": { "type": "prefix", "env": "USERPROFILE", "path": ".gnupg" },
+    "protection": "deny-delete"
+  },
+  {
+    "id": "user-aws-credentials",
+    "category": "windows",
+    "application": "AWS CLI",
+    "description": "Protect cloud CLI credentials and configuration.",
+    "match": { "type": "prefix", "env": "USERPROFILE", "path": ".aws" },
+    "protection": "deny-delete"
+  },
+  {
+    "id": "user-kube-config",
+    "category": "windows",
+    "application": "Kubernetes",
+    "description": "Protect Kubernetes client configuration and certificates.",
+    "match": { "type": "prefix", "env": "USERPROFILE", "path": ".kube" },
+    "protection": "deny-delete"
+  },
+  {
+    "id": "user-git-credentials",
+    "category": "windows",
+    "application": "Git",
+    "description": "Protect the stored plaintext Git credentials file.",
+    "match": { "type": "exact", "env": "USERPROFILE", "path": ".git-credentials" },
+    "protection": "deny-delete"
+  }
+]

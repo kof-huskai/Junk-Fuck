@@ -203,6 +203,149 @@ Not verified in this environment (browser tooling was flaky this cycle):
 - Results page interaction during a live sidebar width transition with a
   large result set (manual checklist item).
 
+## Sidebar Motion QA (4.2.0)
+
+Problem reported: the sidebar width changed but main content jumped, and the
+label reveal used `max-w-0 → max-w-full` (not animatable between 0 and `100%`,
+so labels snapped).
+
+Fix — one layout source:
+
+- The app shell is now a grid: `grid-template-columns:
+  var(--sidebar-width) minmax(0, 1fr)` with `transition:
+  grid-template-columns 180ms cubic-bezier(0.2,0,0,1)`. The component sets
+  `--sidebar-width` inline (224px expanded / 56px collapsed), so main content
+  resizes at exactly the same pace as the sidebar — no jump, no overlay.
+- Labels stay mounted: they fade (opacity) with a small `-translate-x-1`
+  shift while the shrinking grid column clips them progressively; collapse and
+  expand never snap text.
+- Icon column is stable: nav rows use constant `px-[18px]` (20px icons centred
+  in the 56px rail AND stationary between states); branding uses `px-[19px]`.
+- The aside's own `transition-[width]` was removed (the grid column drives
+  it). Reduced motion is honored by the existing global override.
+
+Verified: CSS + JS in the built bundle (grid transition property, easing,
+constant paddings, mounted-label classes); sidebar state unit tests still
+pass; live width transitions remain manual-checklist items (browser tooling
+unavailable this cycle).
+
+## Scanner permission UX QA (4.2.0)
+
+- Backend classification: `internal/scanner` sets `ScanError.Permission` via
+  `isPermissionError` — `os.ErrPermission` plus Windows error codes 5
+  (access denied), 1314 (privilege not held), 740 (elevation required), 1920
+  (cannot access file), 10013 (WSAEACCES). Unit-tested; unrelated errors are
+  never mislabelled.
+- One hint per scan: the Scanner page shows the quiet yellow hint only when a
+  permission-classified error arrives, only once per scan (reset on a new
+  scan id), and only when `systemInfo.isAdmin` is false (no elevation loop).
+  The existing Errors count stays accurate — the hint is additional guidance.
+- "Run as administrator" is an inline underlined link (keyboard-focusable)
+  → `SettingsService.RelaunchElevated` → `platform.RelaunchElevated`
+  (ShellExecuteW with the `runas` verb → UAC prompt).
+- Success: the current instance cancels any active scan (`core.Close`) and
+  quits after a short delay, leaving exactly one (elevated) instance. UAC
+  cancel/failure: the current instance stays open and working.
+- Already elevated: `RelaunchElevated` returns success without relaunching.
+
+Verified: Go tests (classification, elevation stub on non-Windows), build
+passes. Live UAC prompt behaviour is a manual checklist item (requires an
+interactive desktop session).
+
+## Rules architecture QA (4.2.0)
+
+- `internal/whitelist` implements the WHITELIST/PROTECTION system; the
+  bundled DATA lives in the repo-root `rules/` directory (single source of
+  truth for the bundle AND the remote update path):
+  - Conservative ruleset (`rules/*.json`, 23 rules) embedded into the binary
+    via the root `rules` package — the app is fully safe offline.
+  - Validated cache in `%LOCALAPPDATA%\JunkFuck\rules` (atomic write: temp
+    files renamed in place, manifest last, `.updated` marker; a partial
+    download can never become active).
+  - Remote updates come from the SAME repository's `rules/` path on GitHub
+    (raw.githubusercontent.com/kof-huskai/Junk-Fuck/main/rules, TTL 24h,
+    background check at startup, manual refresh in Settings). The updater
+    fetches ONLY the manifest first and downloads rule files only when the
+    remote `rulesVersion` is newer — same/older versions do nothing. Any
+    failure falls back to the last valid ruleset and never crashes the app.
+  - Validation rejects: unknown schema, duplicate IDs, unknown env vars,
+    wildcards, `..` traversal, bare drive roots, unknown categories/matchers,
+    bad protection values, checksum mismatches, app-incompatible manifests.
+- Protection-only invariant: the rule schema has no field that can express
+  deletion authority (`protection` accepts only `deny-delete`; extra JSON
+  fields like `delete: true` are ignored by the struct and a non-whitelist
+  protection value is rejected). Tested explicitly.
+- Integration: `protection.Protection` gained an additive `DynamicProtector`
+  (implemented by the whitelist); hard-coded safety always wins and can never
+  be disabled by remote data. Scanner pruning, candidate `protected` flags
+  and cleaner revalidation all consult it.
+- Protection rules updates are kept strictly separate from application
+  updates (different service, different UI section, different source).
+- P3 — a failed cache write after a successful remote rules download was
+  reported as an update failure even though the newer ruleset was already
+  active in memory. Resolution — `CheckAndUpdate` now surfaces a cache-write
+  problem as a warning (status stays up-to-date; the error is shown in the
+  Settings rules card), and the app falls back to bundled rules on the next
+  launch.
+
+Verified: 20 new `internal/whitelist` tests pass (bundled load, validation,
+corrupted-cache fallback, newer-cache preference, older-cache non-downgrade,
+remote round-trip + atomic cache + restart reload, offline fallback,
+incompatible-app refusal, TTL, version comparison, category whitelists,
+protection-only invariants); plus protection dynamic-contract tests and a
+cleaner integration test (whitelisted candidate refused).
+
+## Last-scan summary QA (4.2.0)
+
+Regression reported: after a successful scan the Dashboard still showed
+"Last scan: Never".
+
+Root cause: the Dashboard's "Last scan" label was driven by `lastReport` —
+the CLEANUP report, which is only ever set when a cleanup runs. Scan
+completion wrote no last-scan record at all, and nothing persisted one
+across restarts, so the label stayed "Never" after every scan.
+
+Fix — one canonical backend record:
+
+- `model.ScanSummary` (CompletedAt RFC3339 UTC, Target, FilesScanned,
+  JunkItems, ReclaimableBytes, ErrorCount) is the single source of truth
+  for the Dashboard summary; the UI stores a timestamp, never a rendered
+  string like "Just now".
+- `Core.recordScanResult` writes it only on a REAL successful terminal
+  state (`!res.Cancelled && !failed`). Cancelled and failed scans never
+  overwrite the previous successful summary; permission errors inside an
+  otherwise completed scan are counted (ErrorCount), not treated as scan
+  failure — matching the scanner's actual terminal status. A successful
+  zero-junk scan still records it (items 0).
+- Persisted atomically (temp file + rename) to
+  `%LOCALAPPDATA%\JunkFuck\last-scan.json` and reloaded at startup, so the
+  summary survives restarts (a missing/corrupt file simply means "no
+  successful scan yet").
+- The frontend store reads it after every `scan:done` AND at startup
+  (`ScannerService.GetLastScanSummary`); the Dashboard derives
+  items / reclaimable / "Last scan" from it (relative time, refreshed on a
+  lightweight 1-minute tick so "Just now" → "1 min ago" while the page
+  stays open), falling back to live session counts only while a scan is
+  running or before the first scan.
+- Counts agree with the Results page by construction: the summary is
+  computed from the exact same candidate set the Results page shows.
+- Newest scan wins: a later successful scan replaces the previous summary
+  (timestamp nanosecond-precision so consecutive scans never collide);
+  cancelled/failed scans preserve the existing one.
+- Semantics note: after a cleanup the Dashboard shows the pre-cleanup scan
+  summary (what the last scan found) while Results shows the remaining
+  session candidates — this is the intended "last scan" meaning, not a
+  divergence bug.
+
+Verified: 7 new Go tests (`services/core_test.go`: success records,
+zero-junk records, cancelled preserves previous, failed preserves previous,
+summary survives reload, counts match the scan result, service exposure
+before/after first scan) and 11 new vitest tests for `relativeTime` +
+`dashboardCounts`. `gofmt -l` clean, `go vet` clean, `go test ./...` all
+packages pass, bindings regenerated (new `ScanSummary` model +
+`GetLastScanSummary` method), frontend test/build pass, production EXE
+builds and launches.
+
 ## Dashboard QA
 
 - Sidebar fills the full window height: verified in the built frontend
@@ -286,6 +429,15 @@ Not verified in this environment:
 
 Severity scale: P0 = release-blocking, P1 = major, P2 = minor, P3 = cosmetic.
 
+- P1 — Dashboard showed "Last scan: Never" after a successful scan.
+  Root cause — the label was driven by the CLEANUP report (`lastReport`),
+  which is only set when cleanup runs; scan completion never recorded a
+  last-scan summary and nothing persisted one across restarts.
+  Resolution — canonical backend `model.ScanSummary` recorded only on real
+  successful terminal scans (cancelled/failed never overwrite), persisted
+  atomically across restarts, read by the store on scan completion and at
+  startup, and rendered as relative time by the Dashboard (counts agree
+  with Results by construction).
 - P2 — Geist → JetBrains Mono swap changes component metrics.
   Resolution — centralized font tokens + body metric adjustments
   (13.5px / line-height 1.45 / -0.01em); verified no clipping in the build.
@@ -366,6 +518,56 @@ width measurement (browser tooling flaky; logic unit-tested).
 - P3 (fixed in review) — collapsed-mode update-status tooltip described the
   action, not the state. Resolution — the tooltip now shows the state label
   ("Update available — v4.2.0") when collapsed.
+- P2 (4.2.0) — Sidebar motion: main content jumped while the sidebar
+  animated, and labels snapped (max-width is not animatable). Resolution —
+  grid-driven `grid-template-columns` transition on the app shell (one layout
+  source), always-mounted fading labels, constant icon padding.
+- P2 (4.2.0) — Scanner errors gave no guidance when access was denied.
+  Resolution — backend classifies `ScanError.Permission`; one quiet hint per
+  scan offers an explicit "Run as administrator" relaunch (UAC), never shown
+  when already elevated.
+- Verified (no defect) — the remote RULES concept was implemented strictly as
+  a whitelist: tests prove remote data cannot add deletion authority and
+  hard-coded safety cannot be weakened.
+
+## Functional verification (4.2.0 cycle)
+
+Commands actually executed (this cycle):
+
+- `go build ./...` — passed.
+- `gofmt -l .` — clean after `gofmt -w` on the new files.
+- `go vet ./...` — passed.
+- `go test ./...` — passed (classifier, cleaner, filesystem, protection,
+  scanner incl. new permission-classification test, and the new `rules`
+  package with 17 tests).
+- `wails3 generate bindings -clean=true -ts -i` — passed (5 services, 23
+  methods; `rulesservice.ts` + `SettingsService.RelaunchElevated` exposed).
+- `npm test` — 6/6 sidebar state tests passed.
+- `npm run build` — passed (tsc + vite; JetBrains Mono bundled).
+- `wails3 build VERSION="4.2.0"` — passed; final local QA artifact
+  `bin/JunkFuck.exe` (12,188,672 bytes, SHA256
+  `ba640dec18b4d5ee9cf1e2689e50b962a8c6a6e6e4624dbe4608c411362d97cc`);
+  EXE contains version 4.2.0, the bundled ruleset (rulesVersion
+  `2026.08.11.1`, 23 `deny-delete` rules) and launches on Windows 11
+  (WebView2 env created, process stays alive).
+
+Last-scan fix verification (this cycle):
+
+- `go test ./services/ -v -run 'TestRecordScan|TestLastScan|TestSummaryCounts|TestGetLastScan'`
+  — 7/7 PASS (success, zero-junk, cancelled-preserves, failed-preserves,
+  reload persistence, counts-match-result, service exposure).
+- `npm test` — 17/17 PASS (6 sidebar + 11 new dashboard tests).
+- `npm run build` (tsc + vite) — passed.
+- `wails3 generate bindings -clean=true -ts -i` — passed (new
+  `ScanSummary` model + `ScannerService.GetLastScanSummary` binding).
+- `wails3 build VERSION="4.2.0"` + launch — passed (see Result below).
+
+Not executed in this environment: live UAC elevation flow (interactive
+session required), live remote-rules update against a real repository (repo
+not published yet — the offline fallback path is what runs today), live
+sidebar hover-width measurement (browser tooling flaky this cycle; state
+logic unit-tested), and a live scan → Dashboard verification (manual
+checklist item — the summary pipeline is covered by the tests above).
 
 ## Release notes / Telegram QA (v4.1.0)
 
@@ -399,8 +601,18 @@ width measurement (browser tooling flaky; logic unit-tested).
 - Release list is clean: v4.1.0 (Latest) plus legitimate historical releases
   v4.0.1 / v4.0.0 / v3.0.0 — no leftover test release from this cycle.
 
-## Result
+## Result (current cycle: v4.2.0 development / QA)
 
-passed — implementation, automated verification, user-approved release
-candidate, and the published v4.1.0 release were all verified (see final
-release verification above).
+passed (local QA build) — the 4.2.0 implementation (sidebar motion, scanner
+permission UX + elevated relaunch, whitelist rules engine with bundled +
+cached + remote fallback, Settings full-width layout, root `rules/`
+same-repo whitelist storage, and the canonical last-scan summary fixing
+"Last scan: Never") is implemented and automated verification passes (Go
+build/vet/test incl. new rules + permission + last-scan tests, bindings
+regen, frontend test + build). Live-desktop items (UAC prompt, real remote
+rules repo, large-result sidebar transitions, live scan → Dashboard)
+remain manual checklist items; no release was made and none may be made
+without the owner's explicit approval.
+
+The v4.1.0 release itself remains fully verified (see final release
+verification above).

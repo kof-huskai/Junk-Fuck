@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { LayoutDashboard, Search, FolderOpen, History as HistoryIcon, Settings as SettingsIcon, Info, Download, CheckCircle2, RefreshCw, TriangleAlert, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import appIcon from "./assets/app-icon.png";
 import { I18nProvider, useI18n } from "./i18n";
@@ -89,18 +89,25 @@ function SidebarUpdateStatus({
       // not just the click action — e.g. "Update available — v4.2.0".
       title={collapsed ? label : title}
       disabled={checking}
-      className={`flex w-full items-center rounded-md py-1.5 text-xs transition-colors hover:bg-panel-2 disabled:opacity-80 ${
-        collapsed ? "justify-center px-0" : "gap-2 px-2"
+      className={`flex w-full items-center overflow-hidden rounded-md py-1.5 text-xs transition-[gap,background-color] duration-150 hover:bg-panel-2 disabled:opacity-80 px-[18px] ${
+        collapsed ? "gap-0" : "gap-2"
       }`}
     >
-      <span className="shrink-0">{icon}</span>
-      {!collapsed && (
-        /* dir="auto" lets the browser pick the base direction from the first
-            strong character: LTR for English labels, RTL for Persian ones. */
-        <span className={`min-w-0 flex-1 truncate text-start ${tone}`} dir="auto">
-          {label}
-        </span>
-      )}
+      {/* Fixed 20px icon slot: centres the 14px icon in the collapsed rail
+          and keeps the icon column stable between states. */}
+      <span className="flex w-5 shrink-0 justify-center">{icon}</span>
+      {/* The label is always mounted; in collapsed mode it fades out while
+          the rail narrows (grid column clips it). dir="auto" lets the
+          browser pick the base direction from the first strong character:
+          LTR for English labels, RTL for Persian ones. */}
+      <span
+        className={`min-w-0 flex-1 truncate text-start transition-[opacity,transform] duration-[140ms] ease-out ${tone} ${
+          collapsed ? "-translate-x-1 opacity-0" : "translate-x-0 opacity-100"
+        }`}
+        dir="auto"
+      >
+        {label}
+      </span>
     </button>
   );
 }
@@ -153,7 +160,10 @@ function Shell() {
   };
 
   return (
-    <div className="app-shell flex h-full">
+    <div
+      className="app-shell h-full"
+      style={{ "--sidebar-width": collapsed ? "56px" : "224px" } as CSSProperties}
+    >
       {/* Sidebar — stretches the full window height (no fixed px heights).
           Windows-11-inspired geometry: a modest right-corner curve with a
           low-opacity soft shadow for subtle separation from the content.
@@ -166,13 +176,19 @@ function Shell() {
           handlers live on the aside itself — the left edge is fixed, so the
           pointer stays inside during the width transition (no flicker). */}
       <aside
-        className={`relative z-10 flex h-full shrink-0 flex-col rounded-r-[14px] border-e border-border bg-panel shadow-[4px_0_16px_-6px_rgba(0,0,0,0.55)] transition-[width] duration-150 ease-out ${
-          collapsed ? "w-14" : "w-56"
-        }`}
+        className="relative z-10 flex h-full min-w-0 flex-col rounded-r-[14px] border-e border-border bg-panel shadow-[4px_0_16px_-6px_rgba(0,0,0,0.55)]"
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        <div className={`flex items-center py-5 ${collapsed ? "justify-center px-0" : "gap-2.5 px-5"}`}>
+        {/* Constant padding keeps the logo column optically stable between
+            the expanded and collapsed states; the text block fades and is
+            clipped by the shrinking rail. px-[19px] centers the 18px logo
+            in the 56px rail (nav rows use px-[18px] for the 20px icons). */}
+        <div
+          className={`flex items-center overflow-hidden px-[19px] py-5 transition-[gap] duration-150 ${
+            collapsed ? "gap-0" : "gap-2.5"
+          }`}
+        >
           <img
             src={appIcon}
             alt={t("app.name")}
@@ -181,39 +197,42 @@ function Shell() {
             draggable={false}
             className="h-[18px] w-[18px] shrink-0 object-contain"
           />
-          {!collapsed && (
-            <div className="min-w-0">
-              <p className="truncate text-sm font-bold text-white">{t("app.name")}</p>
-              <p className="text-[10px] text-muted">v4 · Go + Wails</p>
-            </div>
-          )}
+          <div
+            className={`min-w-0 transition-[opacity,transform] duration-[140ms] ease-out ${
+              collapsed ? "-translate-x-1 opacity-0" : "translate-x-0 opacity-100"
+            }`}
+          >
+            <p className="truncate text-sm font-bold text-white">{t("app.name")}</p>
+            <p className="text-[10px] text-muted">v4 · Go + Wails</p>
+          </div>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-1 px-3">
+        <nav className="flex flex-1 flex-col gap-1">
           {PAGES.map((p) => (
             <button
               key={p}
               onClick={() => setPage(p)}
               title={collapsed ? t(`nav.${p}`) : undefined}
               aria-label={collapsed ? t(`nav.${p}`) : undefined}
-              className={`group flex items-center rounded-md py-2 text-sm transition-all duration-150 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 ${
-                collapsed ? "justify-center gap-0 px-0" : "gap-3 px-3"
-              } ${
+              className={`group flex items-center overflow-hidden rounded-md px-[18px] py-2 text-sm transition-all duration-150 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 ${
                 page === p ? "bg-accent-soft/40 text-white" : "text-muted hover:bg-panel-2 hover:text-white"
-              }`}
+              } ${collapsed ? "gap-0" : "gap-3"}`}
             >
+              {/* Fixed 20px icon column: the rail's constant px-[18px]
+                  keeps icons optically centred in the 56px rail AND
+                  stationary between the collapsed/expanded states. */}
               <span
-                className={`flex w-5 justify-center transition-transform duration-200 ease-out group-hover:scale-110 ${
+                className={`flex w-5 shrink-0 justify-center transition-transform duration-200 ease-out group-hover:scale-110 ${
                   page === p ? "text-accent" : ""
                 }`}
               >
                 {icons[p]}
               </span>
-              {/* max-width animates smoothly (width would snap); `truncate`
-                  already provides overflow-hidden + nowrap. */}
+              {/* Label stays mounted: opacity fades while the shrinking
+                  grid column clips it, so collapse/expand never snaps. */}
               <span
-                className={`truncate text-sm transition-[max-width,opacity] duration-150 ${
-                  collapsed ? "max-w-0 opacity-0" : "max-w-full opacity-100"
+                className={`truncate text-sm transition-[opacity,transform] duration-[140ms] ease-out ${
+                  collapsed ? "-translate-x-1 opacity-0" : "translate-x-0 opacity-100"
                 }`}
               >
                 {t(`nav.${p}`)}
@@ -225,7 +244,7 @@ function Shell() {
         {/* Bottom of the sidebar: real updater status from the existing
             update service + the collapse/expand pin. Compact by design —
             update details live in Settings. */}
-        <div className="border-t border-border/70 px-2 pb-2.5 pt-2">
+        <div className="border-t border-border/70 pb-2.5 pt-2">
           <SidebarUpdateStatus
             state={updateState}
             checking={updateChecking}
@@ -241,14 +260,20 @@ function Shell() {
             onClick={toggleSidebar}
             aria-label={userCollapsed ? t("side.expand") : t("side.collapse")}
             title={userCollapsed ? t("side.expand") : t("side.collapse")}
-            className={`mt-1 flex w-full items-center rounded-md py-1.5 text-muted transition-colors hover:bg-panel-2 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 ${
-              collapsed ? "justify-center px-0" : "gap-2 px-2"
+            className={`mt-1 flex w-full items-center overflow-hidden rounded-md px-[18px] py-1.5 text-muted transition-[gap,background-color] duration-150 hover:bg-panel-2 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 ${
+              collapsed ? "gap-0" : "gap-2"
             }`}
           >
-            {userCollapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
-            {!collapsed && (
-              <span className="text-xs">{userCollapsed ? t("side.expand") : t("side.collapse")}</span>
-            )}
+            <span className="flex w-5 shrink-0 justify-center">
+              {userCollapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
+            </span>
+            <span
+              className={`truncate text-xs transition-[opacity,transform] duration-[140ms] ease-out ${
+                collapsed ? "-translate-x-1 opacity-0" : "translate-x-0 opacity-100"
+              }`}
+            >
+              {userCollapsed ? t("side.expand") : t("side.collapse")}
+            </span>
           </button>
         </div>
       </aside>
@@ -256,7 +281,7 @@ function Shell() {
       {/* Main — the shell itself never scrolls; scroll ownership belongs to
           the page container below (and to per-page scroll regions like the
           Results list). */}
-      <main className="min-h-0 min-w-0 flex-1 overflow-hidden">
+      <main className="min-h-0 min-w-0 overflow-hidden">
         <div key={page} className="page-enter h-full min-h-0 overflow-y-auto">
           {page === "dashboard" && <Dashboard onNavigate={(p) => setPage(p as Page)} />}
           {page === "scanner" && <Scanner />}

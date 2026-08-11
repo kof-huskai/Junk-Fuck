@@ -115,6 +115,13 @@ func (s *ScannerService) StartScan(targets []string) (string, error) {
 		delete(s.core.cancelFns, scanID)
 		s.core.mu.Unlock()
 
+		// The canonical last-scan summary is written BEFORE scan:done is
+		// emitted, so the Dashboard can read it the moment the frontend
+		// handles completion. Only a real successful terminal state records
+		// it (no failure path exists today; the parameter keeps the
+		// cancelled/failed invariants explicit and testable).
+		s.core.recordScanResult(targets, res, false)
+
 		app.Event.Emit("scan:done", map[string]any{
 			"scanId":    scanID,
 			"cancelled": res.Cancelled,
@@ -180,6 +187,19 @@ func (s *ScannerService) GetScanErrors(scanID string) ([]model.ScanError, error)
 // GetProtectedPaths returns the canonical protected roots (informational).
 func (s *ScannerService) GetProtectedPaths() []string {
 	return s.core.protection.List()
+}
+
+// GetLastScanSummary returns the canonical record of the most recently
+// successfully completed scan (nil before the first successful scan).
+// Cancelled or failed scans never replace it. This is the single source of
+// truth for the Dashboard's last-scan summary and survives restarts.
+func (s *ScannerService) GetLastScanSummary() (*model.ScanSummary, error) {
+	s.core.mu.Lock()
+	defer s.core.mu.Unlock()
+	if s.core.lastScan == nil {
+		return nil, fmt.Errorf("no scan has completed yet")
+	}
+	return s.core.lastScan, nil
 }
 
 // GetSystemInfo reports OS version and elevation status.
