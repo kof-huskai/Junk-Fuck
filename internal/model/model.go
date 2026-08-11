@@ -62,3 +62,15 @@ type ScanSession struct {
 	Candidates map[string]Candidate // key: canonical comparison key
 	Done       bool
 }
+
+// DriveInfo describes one detected Windows logical drive. The frontend only
+// ever selects scan roots from this backend-provided list; it never invents
+// paths.
+type DriveInfo struct {
+	Root       string `json:"root"`       // e.g. "C:\\"
+	Label      string `json:"label"`      // volume label, may be empty
+	Type       string `json:"type"`       // fixed | removable | network | optical | ram | unknown
+	TotalBytes int64  `json:"totalBytes"` // 0 when the drive is not ready
+	FreeBytes  int64  `json:"freeBytes"`  // 0 when the drive is not ready
+	Ready      bool   `json:"ready"`      // false for empty optical drives etc.
+}

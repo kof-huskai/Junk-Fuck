@@ -5,7 +5,10 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/kof-huskai/Junk-Fuck/internal/filesystem"
@@ -27,10 +30,54 @@ func newID() string {
 	return hex.EncodeToString(b)
 }
 
+// ListDrives returns the currently available Windows drives (system/fixed
+// first). The frontend only ever selects scan roots from this list.
+func (s *ScannerService) ListDrives() []model.DriveInfo {
+	return platform.ListDrives()
+}
+
+// validateTarget rejects malformed, non-existent or unavailable scan roots
+// before a scan starts. The frontend only selects from backend-provided
+// drives, but this is enforced here as well: never trust the frontend.
+func validateTarget(raw string) error {
+	t := strings.TrimSpace(raw)
+	if t == "" {
+		return fmt.Errorf("empty scan target")
+	}
+	vol := filepath.VolumeName(t) // "C:" (no trailing backslash)
+	if len(vol) < 2 || vol[1] != ':' {
+		return fmt.Errorf("scan target %q is not an absolute Windows path", raw)
+	}
+	// The volume must be a currently available, ready drive.
+	found := false
+	for _, d := range platform.ListDrives() {
+		if strings.EqualFold(strings.TrimRight(d.Root, `\`), vol) {
+			found = true
+			if !d.Ready {
+				return fmt.Errorf("drive %s is not ready", vol)
+			}
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("drive %s is not available", vol)
+	}
+	// The path itself must exist.
+	if _, err := os.Stat(t); err != nil {
+		return fmt.Errorf("scan target %q does not exist", raw)
+	}
+	return nil
+}
+
 // StartScan launches an asynchronous scan and returns its scan id.
 func (s *ScannerService) StartScan(targets []string) (string, error) {
 	if len(targets) == 0 {
 		return "", fmt.Errorf("no scan targets provided")
+	}
+	for _, raw := range targets {
+		if err := validateTarget(raw); err != nil {
+			return "", err
+		}
 	}
 	scanID := newID()
 	ctx, cancel := context.WithCancel(context.Background())

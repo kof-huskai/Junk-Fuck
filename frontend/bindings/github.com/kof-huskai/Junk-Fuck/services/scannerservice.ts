@@ -63,6 +63,14 @@ export function GetSystemInfo(): $CancellablePromise<platform$0.Info> {
 }
 
 /**
+ * ListDrives returns the currently available Windows drives (system/fixed
+ * first). The frontend only ever selects scan roots from this list.
+ */
+export function ListDrives(): $CancellablePromise<model$0.DriveInfo[] | null> {
+    return $Call.ByID(4172432574);
+}
+
+/**
  * StartScan launches an asynchronous scan and returns its scan id.
  */
 export function StartScan(targets: string[] | null): $CancellablePromise<string> {

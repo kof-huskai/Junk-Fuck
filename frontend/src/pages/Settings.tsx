@@ -6,14 +6,15 @@ import { Button, Card, Checkbox, Input, Select } from "../components/ui";
 
 export function Settings() {
   const { t, lang, setLang } = useI18n();
-  const { settings, setSettings, appInfo, updateState, checkForUpdates, installUpdate } = useStore();
-  const [targets, setTargets] = useState(settings.targets);
+  const { settings, setSettings, appInfo, updateState, checkForUpdates, installUpdate, selectedRoot, setSelectedRoot } = useStore();
+  const [targets, setTargets] = useState(selectedRoot);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
 
   const save = () => {
-    setSettings({ targets });
+    // Writes the shared target state (same source the Dashboard/Scanner use).
+    setSelectedRoot(targets);
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
   };

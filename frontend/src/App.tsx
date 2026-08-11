@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { LayoutDashboard, Search, FolderOpen, History as HistoryIcon, Settings as SettingsIcon, Info, Sparkles } from "lucide-react";
 import { I18nProvider, useI18n } from "./i18n";
 import { AppStoreProvider, useStore } from "./lib/store";
@@ -13,13 +13,25 @@ const PAGES = ["dashboard", "scanner", "results", "history", "settings", "about"
 type Page = (typeof PAGES)[number];
 
 function Shell() {
-  const { t, lang, setLang } = useI18n();
-  const { scanning, candidates, refreshMeta } = useStore();
+  const { t } = useI18n();
+  const { completedScan, refreshDrives } = useStore();
   const [page, setPage] = useState<Page>("dashboard");
+  // Guards against double navigation if a completion signal ever re-fires.
+  const lastNavigatedScan = useRef<string | null>(null);
 
   useEffect(() => {
-    void refreshMeta();
-  }, [refreshMeta]);
+    void refreshDrives();
+  }, [refreshDrives]);
+
+  // Auto-navigate Scanner → Results only on a real successful completion
+  // (cancelled/failed scans never produce an `ok` signal). Results reads the
+  // already-persisted candidates, so the store is populated before we move.
+  useEffect(() => {
+    if (completedScan && completedScan.ok && lastNavigatedScan.current !== completedScan.scanId) {
+      lastNavigatedScan.current = completedScan.scanId;
+      setPage("results");
+    }
+  }, [completedScan]);
 
   const icons: Record<Page, ReactNode> = {
     dashboard: <LayoutDashboard size={18} />,
@@ -31,11 +43,11 @@ function Shell() {
   };
 
   return (
-    <div className="flex h-screen">
+    <div className="app-shell flex h-screen">
       {/* Sidebar */}
       <aside className="flex w-56 shrink-0 flex-col border-e border-border bg-panel">
         <div className="flex items-center gap-2.5 px-5 py-5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent/15 text-accent">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/15 text-accent">
             <Sparkles size={18} />
           </span>
           <div>
@@ -49,7 +61,7 @@ function Shell() {
             <button
               key={p}
               onClick={() => setPage(p)}
-              className={`group flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all duration-150 active:scale-[0.98] ${
+              className={`group flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-all duration-150 active:scale-[0.98] ${
                 page === p ? "bg-accent-soft/40 text-white" : "text-muted hover:bg-panel-2 hover:text-white"
               }`}
             >
@@ -64,20 +76,6 @@ function Shell() {
             </button>
           ))}
         </nav>
-
-        <div className="border-t border-border p-4">
-          {scanning ? (
-            <span className="flex items-center gap-2 text-xs text-warn">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-warn" />
-              {t("dash.status.scanning")}
-            </span>
-          ) : (
-            <span className="flex items-center gap-2 text-xs text-muted">
-              <span className="h-2 w-2 rounded-full bg-success" />
-              {candidates.length} {t("dash.items")}
-            </span>
-          )}
-        </div>
       </aside>
 
       {/* Main */}
@@ -91,15 +89,6 @@ function Shell() {
           {page === "about" && <About />}
         </div>
       </main>
-
-      {/* Language quick switch (bottom-right) */}
-      <button
-        onClick={() => setLang(lang === "en" ? "fa" : "en")}
-        className="fixed bottom-3 end-3 rounded-full border border-border bg-panel px-3 py-1 text-xs text-muted transition-all duration-150 hover:border-accent/60 hover:text-white active:scale-95"
-        title="Switch language / تغییر زبان"
-      >
-        {lang === "en" ? "فارسی" : "EN"}
-      </button>
     </div>
   );
 }

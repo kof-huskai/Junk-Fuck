@@ -36,6 +36,43 @@ export enum Category {
 };
 
 /**
+ * DriveInfo describes one detected Windows logical drive. The frontend only
+ * ever selects scan roots from this backend-provided list; it never invents
+ * paths.
+ */
+export interface DriveInfo {
+    /**
+     * e.g. "C:\\"
+     */
+    "root": string;
+
+    /**
+     * volume label, may be empty
+     */
+    "label": string;
+
+    /**
+     * fixed | removable | network | optical | ram | unknown
+     */
+    "type": string;
+
+    /**
+     * 0 when the drive is not ready
+     */
+    "totalBytes": number;
+
+    /**
+     * 0 when the drive is not ready
+     */
+    "freeBytes": number;
+
+    /**
+     * false for empty optical drives etc.
+     */
+    "ready": boolean;
+}
+
+/**
  * Progress is the live state of an ongoing scan.
  */
 export interface Progress {

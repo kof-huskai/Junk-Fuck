@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/*
+ * JunkFuck theme tokens — single source of truth for the dark palette.
+ *
+ * --color-bg MUST visually match the native window background and title bar
+ * configured in main.go (BackgroundColour + CustomTheme title bar colour).
+ * Keep both in sync; they are the same #0b0d12.
+ */
 @theme {
   --color-bg: #0b0d12;
   --color-panel: #12151d;
@@ -12,7 +19,18 @@
   --color-success: #3ddc97;
   --color-warn: #ffc24b;
   --color-muted: #8a93a8;
-  --font-sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+
+  /* Fonts — Geist (bundled, offline) with native Windows fallbacks. */
+  --font-sans: "Geist", "Segoe UI Variable", "Segoe UI", system-ui,
+    -apple-system, BlinkMacSystemFont, "Segoe UI Historic", sans-serif;
+  --font-mono: "Geist Mono", "Cascadia Mono", "Consolas", ui-monospace,
+    monospace;
+
+  /* Radius hierarchy — quiet, native-desktop feel. Avoid pills. */
+  --radius-card: 10px;
+  --radius-control: 6px;
+  --radius-small: 4px;
+
   /* Motion tokens — shared across the app for a cohesive feel. */
   --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -21,27 +39,51 @@
   --duration-slow: 320ms;
 }
 
+/* Semantic aliases (requested token names). The native title bar colour in
+   main.go must keep matching --app-bg / --color-bg. */
+:root {
+  --app-bg: var(--color-bg);
+  --sidebar-bg: var(--color-panel);
+  --surface: var(--color-panel);
+  --surface-hover: var(--color-panel-2);
+  --border: var(--color-border);
+  --text: #e7eaf3;
+  --text-muted: var(--color-muted);
+  --accent: var(--color-accent);
+  --success: var(--color-success);
+}
+
 html {
   color-scheme: dark;
 }
 
 body {
   margin: 0;
-  background-color: var(--color-bg);
-  color: #e7eaf3;
+  background-color: var(--app-bg);
+  color: var(--text);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   user-select: none;
   overflow: hidden;
 }
 
-/* Vazirmatn — applied automatically when the app switches to Persian
-   (the i18n layer sets document.documentElement.lang = "fa"). */
+/* Geist has no Persian glyph coverage — the i18n layer sets
+   document.documentElement.lang = "fa", which switches the whole UI to the
+   bundled Vazirmatn (with Segoe UI/Tahoma as native fallbacks). */
 html[lang="fa"] body,
 html[lang="fa"] input,
 html[lang="fa"] select,
 html[lang="fa"] button {
-  font-family: "Vazirmatn", var(--font-sans);
+  font-family: "Vazirmatn", "Segoe UI", Tahoma, var(--font-sans);
+}
+
+/* App shell: the window is fixed-size, so the layout uses internal
+   scrolling only — never a browser-level scrollbar. */
+#root,
+.app-shell {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
 /* ---------- Page transitions ---------- */

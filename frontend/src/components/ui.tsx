@@ -12,15 +12,14 @@ export function Button({
   ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant; size?: ButtonSize }) {
   const variants: Record<ButtonVariant, string> = {
-    primary:
-      "bg-accent text-white hover:bg-[#6b9dff] active:bg-[#3f76e0] shadow-[0_0_20px_rgba(79,140,255,0.25)]",
+    primary: "bg-accent text-white hover:bg-[#6b9dff] active:bg-[#3f76e0] shadow-sm",
     secondary: "bg-panel-2 text-slate-200 border border-border hover:border-accent/60 hover:text-white",
     danger: "bg-danger/90 text-white hover:bg-danger",
     ghost: "text-muted hover:text-white hover:bg-panel-2",
   };
   const sizes: Record<ButtonSize, string> = {
-    sm: "text-xs px-3 py-1.5 rounded-lg gap-1.5",
-    md: "text-sm px-4 py-2 rounded-lg gap-2",
+    sm: "text-xs px-3 py-1.5 rounded-md gap-1.5",
+    md: "text-sm px-4 py-2 rounded-md gap-2",
   };
   return (
     <button
@@ -34,7 +33,7 @@ export function Button({
 export function Card({ className = "", children }: { className?: string; children: React.ReactNode }) {
   return (
     <div
-      className={`rounded-xl border border-border bg-panel p-5 transition-all duration-200 hover:border-accent/40 hover:shadow-[0_4px_24px_rgba(0,0,0,0.35)] ${className}`}
+      className={`rounded-[10px] border border-border bg-panel p-5 transition-colors duration-200 hover:border-accent/40 ${className}`}
     >
       {children}
     </div>
@@ -52,7 +51,7 @@ const badgeColors: Record<string, string> = {
 
 export function Badge({ color = "slate", className = "", children }: { color?: string; className?: string; children: React.ReactNode }) {
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium leading-4 ${badgeColors[color] ?? badgeColors.slate} ${className}`}>
+    <span className={`inline-flex items-center rounded-[4px] border px-2 py-0.5 text-[11px] font-medium leading-4 ${badgeColors[color] ?? badgeColors.slate} ${className}`}>
       {children}
     </span>
   );
@@ -63,7 +62,7 @@ export function Input({ className = "", ...props }: React.InputHTMLAttributes<HT
   return (
     <input
       {...props}
-      className={`w-full rounded-lg border border-border bg-panel-2 px-3 py-2 text-sm text-slate-100 placeholder:text-muted/60 focus:outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/40 transition-colors ${className}`}
+      className={`w-full rounded-md border border-border bg-panel-2 px-3 py-2 text-sm text-slate-100 placeholder:text-muted/60 focus:outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/40 transition-colors ${className}`}
     />
   );
 }
@@ -73,7 +72,7 @@ export function Select({ className = "", children, ...props }: React.SelectHTMLA
   return (
     <select
       {...props}
-      className={`rounded-lg border border-border bg-panel-2 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-accent/60 ${className}`}
+      className={`rounded-md border border-border bg-panel-2 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-accent/60 ${className}`}
     >
       {children}
     </select>
@@ -101,7 +100,7 @@ export function Checkbox({
         e.stopPropagation();
         if (!disabled) onChange(!checked);
       }}
-      className={`inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border transition-all duration-150 disabled:opacity-30 disabled:pointer-events-none active:scale-90 ${
+      className={`inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[4px] border transition-all duration-150 disabled:opacity-30 disabled:pointer-events-none active:scale-90 ${
         checked ? "border-accent bg-accent" : "border-border bg-panel-2 hover:border-accent/60"
       }`}
     >
@@ -172,7 +171,7 @@ export function Dialog({
       onClick={requestClose}
     >
       <div
-        className={`${closing ? "dialog-exit-panel" : "dialog-panel"} w-[520px] max-w-[90vw] rounded-2xl border border-border bg-panel p-6 shadow-2xl`}
+        className={`${closing ? "dialog-exit-panel" : "dialog-panel"} w-[520px] max-w-[90vw] rounded-[10px] border border-border bg-panel p-6 shadow-xl`}
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="mb-4 text-lg font-semibold text-white">{title}</h2>
@@ -186,7 +185,7 @@ export function Dialog({
 export function EmptyState({ title, hint }: { title: string; hint?: string }) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-panel-2 text-accent">
+      <div className="flex h-14 w-14 items-center justify-center rounded-[10px] bg-panel-2 text-accent">
         <Sparkles size={26} />
       </div>
       <p className="text-sm font-medium text-slate-300">{title}</p>

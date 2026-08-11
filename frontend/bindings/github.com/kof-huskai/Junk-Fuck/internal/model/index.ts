@@ -7,6 +7,7 @@ export {
 
 export type {
     Candidate,
+    DriveInfo,
     Progress,
     ScanError
 } from "./models.js";

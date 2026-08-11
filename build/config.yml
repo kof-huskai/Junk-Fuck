@@ -11,7 +11,7 @@ info:
   description: "Deep Windows junk scanner & cleaner"
   copyright: "(c) 2026, Junk-Fuck contributors"
   comments: "Native Windows desktop junk cleaner - Go + Wails v3"
-  version: "4.0.0"
+  version: "4.0.1"
 
 # Dev mode configuration
 dev_mode:

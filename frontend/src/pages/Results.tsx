@@ -97,7 +97,8 @@ export function Results() {
       )}
 
       {candidates.length === 0 ? (
-        <EmptyState title={t("res.none")} />
+        /* A completed scan with zero junk is a valid result, not an error. */
+        <EmptyState title={scanId ? t("scan.empty") : t("res.none")} />
       ) : (
         <Card className="flex min-h-0 flex-1 flex-col p-0">
           {/* toolbar */}

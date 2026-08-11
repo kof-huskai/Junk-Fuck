@@ -1,7 +1,7 @@
 {
   "name": "junkfuck-frontend",
   "private": true,
-  "version": "4.0.0",
+  "version": "4.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,6 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource/geist-mono": "^5.3.0",
+    "@fontsource/geist-sans": "^5.3.0",
     "@fontsource/vazirmatn": "^5.3.0",
     "@wailsio/runtime": "^3.0.0-beta.5",
     "lucide-react": "^1.31.0",

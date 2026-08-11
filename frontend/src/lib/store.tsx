@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import * as scannerSvc from "../../bindings/github.com/kof-huskai/Junk-Fuck/services/scannerservice";
 import * as cleanupSvc from "../../bindings/github.com/kof-huskai/Junk-Fuck/services/cleanupservice";
 import * as settingsSvc from "../../bindings/github.com/kof-huskai/Junk-Fuck/services/settingsservice";
@@ -10,8 +10,14 @@ import type * as services from "../../bindings/github.com/kof-huskai/Junk-Fuck/s
 import { Events } from "@wailsio/runtime";
 
 export interface Settings {
-  targets: string;
   dryRun: boolean;
+}
+
+/** A scan that reached its terminal state, used to auto-navigate to Results
+ *  only on real success (not cancellation, not failure). */
+export interface CompletedScan {
+  scanId: string;
+  ok: boolean;
 }
 
 interface StoreValue {
@@ -25,9 +31,19 @@ interface StoreValue {
   systemInfo: platform.Info | null;
   appInfo: Record<string, string> | null;
   protectedCount: number;
-  settings: Settings;
   updateState: services.UpdateState | null;
+  settings: Settings;
   setSettings: (s: Partial<Settings>) => void;
+  // Drive state — single source of truth shared by Dashboard and Scanner.
+  drives: model.DriveInfo[];
+  drivesLoaded: boolean;
+  drivesError: string | null;
+  /** Set when the previously selected drive disappeared and we auto-switched. */
+  driveSwitchedFrom: string | null;
+  selectedRoot: string;
+  setSelectedRoot: (root: string) => void;
+  refreshDrives: () => Promise<void>;
+  completedScan: CompletedScan | null;
   startScan: (targets: string[]) => Promise<void>;
   cancelScan: () => void;
   refreshCandidates: () => Promise<void>;
@@ -39,6 +55,14 @@ interface StoreValue {
 }
 
 const Ctx = createContext<StoreValue | null>(null);
+
+/** Pick the first safe scan root from the backend drive list: the backend
+ *  already orders fixed/system drives first, so index 0 is the best default. */
+function defaultRoot(drives: model.DriveInfo[], fallback: string): string {
+  const ready = drives.filter((d) => d.ready);
+  if (ready.length > 0) return ready[0].root;
+  return fallback;
+}
 
 export function AppStoreProvider({ children }: { children: React.ReactNode }) {
   const [scanId, setScanId] = useState<string | null>(null);
@@ -53,17 +77,59 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
   const [protectedCount, setProtectedCount] = useState(0);
   const [updateState, setUpdateState] = useState<services.UpdateState | null>(null);
   const [settings, setSettingsState] = useState<Settings>(() => ({
-    targets: localStorage.getItem("jf.targets") ?? "C:\\",
     dryRun: localStorage.getItem("jf.dryRun") !== "0",
   }));
+  const [drives, setDrives] = useState<model.DriveInfo[]>([]);
+  const [drivesLoaded, setDrivesLoaded] = useState(false);
+  const [drivesError, setDrivesError] = useState<string | null>(null);
+  const [driveSwitchedFrom, setDriveSwitchedFrom] = useState<string | null>(null);
+  const [selectedRoot, setSelectedRootState] = useState<string>(() => localStorage.getItem("jf.targets") ?? "C:\\");
+  const [completedScan, setCompletedScan] = useState<CompletedScan | null>(null);
+  // Mirrors for use inside async callbacks (avoids stale closures and keeps
+  // state updaters pure).
+  const selectedRootRef = useRef<string>(selectedRoot);
+  const activeScanRef = useRef<string | null>(null);
 
   const setSettings = useCallback((s: Partial<Settings>) => {
     setSettingsState((prev) => {
       const next = { ...prev, ...s };
-      localStorage.setItem("jf.targets", next.targets);
       localStorage.setItem("jf.dryRun", next.dryRun ? "1" : "0");
       return next;
     });
+  }, []);
+
+  // Single source of truth for the selected scan target. Both Dashboard and
+  // Scanner read/write this; Settings' raw path editor writes it too.
+  const setSelectedRoot = useCallback((root: string) => {
+    const trimmed = root.trim();
+    setSelectedRootState(trimmed);
+    selectedRootRef.current = trimmed;
+    setDriveSwitchedFrom(null);
+    localStorage.setItem("jf.targets", trimmed);
+  }, []);
+
+  const refreshDrives = useCallback(async () => {
+    setDrivesError(null);
+    try {
+      const list = (await scannerSvc.ListDrives()) ?? [];
+      setDrives(list);
+      setDrivesLoaded(true);
+      // If the stored target is no longer an available/ready drive, fall
+      // back to the backend's preferred (system/fixed) drive and surface a
+      // short notice so the user knows the selection changed.
+      const prev = selectedRootRef.current;
+      const stillValid = list.some((d) => d.ready && d.root.toLowerCase() === prev.toLowerCase());
+      if (!stillValid) {
+        const next = defaultRoot(list, prev);
+        setSelectedRootState(next);
+        selectedRootRef.current = next;
+        setDriveSwitchedFrom(prev);
+        localStorage.setItem("jf.targets", next);
+      }
+    } catch (err) {
+      setDrivesError(String(err));
+      setDrivesLoaded(true);
+    }
   }, []);
 
   const refreshCandidates = useCallback(async () => {
@@ -92,9 +158,11 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
     setCandidates([]);
     setLastReport(null);
     setCancelled(false);
+    setCompletedScan(null);
     setScanning(true);
     try {
       const id = await scannerSvc.StartScan(targets);
+      activeScanRef.current = id;
       setScanId(id);
       setProgress({ scanId: id, scannedFiles: 0, candidates: 0, errors: 0, currentPath: "", done: false });
     } catch (err) {
@@ -137,9 +205,17 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
       systemInfo,
       appInfo,
       protectedCount,
-      settings,
       updateState,
+      settings,
       setSettings,
+      drives,
+      drivesLoaded,
+      drivesError,
+      driveSwitchedFrom,
+      selectedRoot,
+      setSelectedRoot,
+      refreshDrives,
+      completedScan,
       startScan,
       cancelScan,
       refreshCandidates,
@@ -149,7 +225,7 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
       installUpdate,
       refreshUpdate,
     }),
-    [scanId, scanning, cancelled, progress, candidates, scanErrors, lastReport, systemInfo, appInfo, protectedCount, settings, updateState, setSettings, startScan, cancelScan, refreshCandidates, refreshMeta, cleanup, checkForUpdates, installUpdate, refreshUpdate],
+    [scanId, scanning, cancelled, progress, candidates, scanErrors, lastReport, systemInfo, appInfo, protectedCount, updateState, settings, drives, drivesLoaded, drivesError, driveSwitchedFrom, selectedRoot, setSelectedRoot, refreshDrives, completedScan, startScan, cancelScan, refreshCandidates, refreshMeta, cleanup, checkForUpdates, installUpdate, refreshUpdate],
   );
 
   // Live event wiring (runs once per provider mount; StrictMode-safe).
@@ -164,6 +240,8 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
       if (e.error) {
         setScanErrors((prev) => [...prev, { path: "", error: e.error ?? "unknown error" }]);
       }
+      // Persist the final results BEFORE signalling completion so the
+      // Results page never navigates into an empty store.
       void (async () => {
         try {
           const list = await scannerSvc.GetCandidates(e.scanId);
@@ -176,6 +254,13 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
           if (errs) setScanErrors(errs);
         } catch {
           // no errors yet
+        }
+        // One completed scan => exactly one completion signal. ok means
+        // "finished with results" — cancelled and failed scans stay put.
+        // The active-scan guard drops stale completions from a scan that was
+        // superseded before its final fetch finished.
+        if (activeScanRef.current === e.scanId) {
+          setCompletedScan({ scanId: e.scanId, ok: !e.cancelled && !e.error });
         }
       })();
     });

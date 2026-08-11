@@ -15,7 +15,7 @@ export function About() {
   return (
     <div className="flex max-w-2xl flex-col gap-6 p-8">
       <div className="flex items-center gap-4">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/15 text-accent">
+        <div className="flex h-14 w-14 items-center justify-center rounded-[10px] bg-accent/15 text-accent">
           <Sparkles size={28} />
         </div>
         <div>
